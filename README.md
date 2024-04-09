@@ -1,4 +1,4 @@
-# Newyork restaurants
+# Newyork restaurants - WIP...
 
 [Fastapi](https://fastapi.tiangolo.com/) (python) app linked to [Atlas-Mongodb database](https://www.mongodb.com/).
 
@@ -8,11 +8,13 @@ The purpose of this app is to provide quick and simple api to support any front-
 
 Over the fast, intuitive and easy to code framework it provides, fastapi is totally standard-based giving access to wonderfull [OpenAPI (Swagger)](https://github.com/OAI/OpenAPI-Specification) and [JSON Schema](https://json-schema.org/)
 
+![swagger](./assets/swagger.png)
+
 ## Security
 
 Don't expose your private credentials online, use [dotenv](https://pypi.org/project/python-dotenv/) to use environment variables for your secrets.
 
-.env file is added to .gitignore, so you will have to define your own .env file with the credentails required for mongodb connexion.
+.env file (at root level) is added to .gitignore, so you will have to define your own .env file with the credentials required for mongodb connexion.
 
 ## Mongodb
 
@@ -41,3 +43,7 @@ Models are mainly defined by [Pydantic](https://docs.pydantic.dev/) librairy.
 It allows to define database schematics with classes which inherit BaseModel from Pydantic.
 
 You will find a nice startup for API setup [here](https://www.mongodb.com/languages/python/pymongo-tutorial).
+
+## Debugg in vsCode
+
+**launch.json** has been set up at root level for debugging purpose.
