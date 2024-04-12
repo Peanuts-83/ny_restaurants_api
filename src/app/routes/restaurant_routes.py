@@ -5,7 +5,8 @@ from fastapi import APIRouter, Body, status, Request, Response
 from fastapi.encoders import jsonable_encoder
 from pymongo.collection import Collection
 
-from ..models.utils import HttpParams, IdMapper
+from ..models.params import OP_FIELD, HttpParams, SingleFilter, Filter
+from ..models.utils import IdMapper
 from ..models.models import Restaurant
 
 ### RESTAURANT_ROUTER
@@ -28,7 +29,9 @@ def read_one_restaurant(request: Request, params: Annotated[HttpParams, Body(emb
             response_description='get list of restaurants',
             status_code=status.HTTP_200_OK,
             response_model=list[Restaurant])
-def read_list_restaurants(request: Request, params: Annotated[HttpParams, Body(embed=True)] = HttpParams(nbr=5,page_nbr=1)):
+def read_list_restaurants(
+    request: Request,
+    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(nbr=5,page_nbr=1, filters={"value": "Wendy'S", "operator_field": OP_FIELD.CONTAIN, "field": "name"})):
     """
     GET RESTAURANTS LIST
 
@@ -36,13 +39,14 @@ def read_list_restaurants(request: Request, params: Annotated[HttpParams, Body(e
         params(HttpParams): required.
             nbr(int): number of items required.
             page_nbr(int): page number.
+            filters(Filter): filters for request.
 
     Returns:
         list[Restaurant]: the requested list with idObject as str.
     """
     coll: Collection = request.app.db_restaurants
     skip = (params.page_nbr - 1) * params.nbr
-    query = {}
+    query = Filter(**params.filters).make()
     if params.page_nbr>1:
         restaurants_cursor: list[dict] = coll.find(query).skip(skip).limit(params.nbr)
     else:

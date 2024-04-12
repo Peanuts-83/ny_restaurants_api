@@ -22,6 +22,8 @@ You can connect your Atlas cluster with [Pymongo](https://www.mongodb.com/docs/d
 
 This way you shall access your cluster, databases and collections.
 
+The database used in this project called **sample_restaurants** is available in the **Sample Dataset** you can load on any free Atlas mongodb account.
+
 ## Project structure
 
 ### Demo
