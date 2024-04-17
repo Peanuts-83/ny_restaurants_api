@@ -1,8 +1,11 @@
 import logging
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, Response
 from dotenv import load_dotenv
 from pymongo import MongoClient
+
+from fastapi.middleware.cors import CORSMiddleware
+from .middleware.http_middleware import CustomMiddleware
 
 from .demo.demo_routes import router as demo_router
 from .routes.router import router
@@ -16,6 +19,24 @@ app = FastAPI()
 ### Main Router #
 app.include_router(demo_router)
 app.include_router(router)
+
+"""
+MIDDLEWARES -
+Can be used :
+    * with @app.middleware('http') decorator on custom_middleware function.
+    * with app.add(<class_custom_middleware(BaseHttpMiddleware)>, **options) by implementing dispatch method.
+"""
+# CORS Middleware to handle CORS requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ErrorMiddleware handler
+app.add_middleware(CustomMiddleware)
 
 @app.on_event('startup')
 def startup_db_client():

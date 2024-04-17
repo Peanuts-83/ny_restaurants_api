@@ -7,7 +7,8 @@ from pydantic import BaseModel, Field, ValidationError, conlist
 ### Restaurant models #
 class Grade(BaseModel):
     date: datetime
-    grade: str = Field(pattern='^[A-F]$')
+    grade: str
+    # = Field(pattern='^[A-Z]$')
     score: int
 
 class Address(BaseModel):
@@ -20,6 +21,7 @@ class Restaurant(BaseModel):
     _id: ObjectId
     address: Address
     borough: str
+    cuisine: str
     grades: list[Grade]
     name: str
     restaurant_id: str

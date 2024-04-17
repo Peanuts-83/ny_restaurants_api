@@ -1,11 +1,11 @@
 import logging
 from typing import Annotated
-from bson import ObjectId
-from fastapi import APIRouter, Body, status, Request, Response
+from fastapi import APIRouter, Body, HTTPException, status, Request
 from fastapi.encoders import jsonable_encoder
 from pymongo.collection import Collection
 
-from ..models.params import OP_FIELD, HttpParams, SingleFilter, Filter
+
+from ..middleware.http_params import OP_FIELD, HttpParams, Filter
 from ..models.utils import IdMapper
 from ..models.models import Restaurant
 
@@ -53,7 +53,8 @@ def read_list_restaurants(
         restaurants_cursor: list[dict] = coll.find(query).limit(params.nbr)
     # idObject to str
     result = [{**rest, '_id': IdMapper().toStr(rest['_id'])} for rest in restaurants_cursor]
-    return list(result)
+    print(f'Mongodb request: {query}')
+    return result
 
 
 @rest_router.post('/create',

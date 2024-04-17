@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, status, Request, Response
 from fastapi.encoders import jsonable_encoder
 from pymongo.collection import Collection
 
-from ..models.params import HttpParams
+from ..middleware.http_params import HttpParams
 from ..models.utils import IdMapper
 from ..models.models import Neighborhood
 

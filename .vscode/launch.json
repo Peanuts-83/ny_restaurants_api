@@ -9,6 +9,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
+            // "justMyCode": false,
             "args": [
                 "src.app.main:app",
                 "--reload"
