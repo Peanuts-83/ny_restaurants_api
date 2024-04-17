@@ -32,6 +32,4 @@ class CustomMiddleware(BaseHTTPMiddleware):
                 status_code = e.status_code
             if hasattr(e,"detail"):
                 error_detail = e.detail
-            if hasattr((e,"_errors")):
-                error_errors = e._errors
-            return Response(status_code=status_code,content=[error_detail,error_errors])
+            return Response(status_code=status_code,content=[error_detail,e])

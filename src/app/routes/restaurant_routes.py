@@ -54,7 +54,7 @@ def read_list_restaurants(
     # idObject to str
     result = [{**rest, '_id': IdMapper().toStr(rest['_id'])} for rest in restaurants_cursor]
     print(f'Mongodb request: {query}')
-    return result
+    return list(result)
 
 
 @rest_router.post('/create',

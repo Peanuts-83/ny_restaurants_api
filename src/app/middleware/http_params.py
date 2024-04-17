@@ -101,7 +101,8 @@ class Filter():
     def doBuildCombined(self, elements) -> dict:
         """
         Hint: to get $all operator on values of sub-arrays, use $nor operator with reversed query.
-        ex: {$nor: [{"grades.grade": {$gt: "A"}}]} > only grade "A"
+        ex: {$nor: [{"grades.grade": {$gt: "A"}}]} > only grade $lte "A"
+        ex: {"grades.grade": {$gt: "A"}} > some grade "A"
         """
         l_request = {}
         # {$and|$or|$nor: <SingleFilter[]>}

@@ -9,7 +9,7 @@ class Grade(BaseModel):
     date: datetime
     grade: str
     # = Field(pattern='^[A-Z]$')
-    score: int
+    score: int|None
 
 class Address(BaseModel):
     building: str
