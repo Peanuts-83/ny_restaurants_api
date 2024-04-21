@@ -1,12 +1,11 @@
 import logging
 import os
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI
 from dotenv import load_dotenv
 from pymongo import MongoClient
-
 from fastapi.middleware.cors import CORSMiddleware
-from .middleware.http_middleware import CustomMiddleware
 
+from .middleware.http_middleware import CustomMiddleware
 from .demo.demo_routes import router as demo_router
 from .routes.router import router
 

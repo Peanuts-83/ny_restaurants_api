@@ -1,4 +1,3 @@
-import logging
 from typing import Annotated
 from fastapi import APIRouter, Body, HTTPException, status, Request
 from fastapi.encoders import jsonable_encoder
@@ -6,7 +5,6 @@ from pymongo.collection import Collection
 
 
 from ..middleware.http_params import OP_FIELD, HttpParams, Filter
-from ..models.utils import IdMapper
 from ..models.models import Restaurant
 
 ### RESTAURANT_ROUTER
@@ -42,7 +40,7 @@ def read_list_restaurants(
             filters(Filter): filters for request.
 
     Returns:
-        list[Restaurant]: the requested list with idObject as str.
+        list[Restaurant]: the requested list.
     """
     coll: Collection = request.app.db_restaurants
     skip = (params.page_nbr - 1) * params.nbr
@@ -51,10 +49,9 @@ def read_list_restaurants(
         restaurants_cursor: list[dict] = coll.find(query).skip(skip).limit(params.nbr)
     else:
         restaurants_cursor: list[dict] = coll.find(query).limit(params.nbr)
-    # idObject to str
-    result = [{**rest, '_id': IdMapper().toStr(rest['_id'])} for rest in restaurants_cursor]
+    result = list(restaurants_cursor)
     print(f'Mongodb request: {query}')
-    return list(result)
+    return result
 
 
 @rest_router.post('/create',
@@ -73,65 +70,53 @@ def create_restaurant(request: Request, restaurant: Annotated[Restaurant, Body(e
     """
     coll: Collection = request.app.db_restaurants
     restaurant = jsonable_encoder(restaurant)
-    try:
-        new_restaurant = coll.insert_one(restaurant)
-        created_restaurant = coll.find_one(
-            {"_id": new_restaurant.inserted_id}
-        )
-        print(f'Success - Restaurant #{new_restaurant.inserted_id} CREATED')
-        return created_restaurant
-    except Exception as e:
-        print(f'Error on CREATE!', e)
+    new_restaurant = coll.insert_one(restaurant)
+    created_restaurant = coll.find_one(
+        {"_id": new_restaurant.inserted_id}
+    )
+    return created_restaurant
 
 
 @rest_router.put('/update/',
                         response_description='update a restaurant',
                         status_code=status.HTTP_200_OK,
                         response_model=Restaurant)
-def update_restaurant(request: Request, changes: Annotated[dict, Body(embed=True)]):
+def update_restaurant(request: Request, id: Annotated[str, Body(embed=True)], changes: Annotated[dict, Body(embed=True)]):
     """
     UPDATE A RESTAURANT
 
     Args:
-        changes(dict): {_id, changed_elements}.
+        changes(dict): {restaurant_id, changed_elements}.
 
     Returns:
         the updated neighborhood.
     """
     coll: Collection = request.app.db_restaurants
-    id = changes['_id']
-    del changes['_id']
-    result = coll.update_one({'_id': IdMapper().toObj(id)}, {"$set": changes})
-    if id == None or result.modified_count==0:
-        print(f'Error on UPDATE', changes)
-        return {"update": {"error": f"_id {id} not found"}}
-    confirm = coll.find_one({'_id': IdMapper().toObj(id)})
+    result = coll.update_one({'restaurant_id': id}, {"$set": changes})
+    if result.matched_count<1:
+        raise HTTPException(status_code=404, detail=f"No match with restaurant_id {id}.")
+    confirm = coll.find_one({'restaurant_id': changes['restaurant_id'] if hasattr(changes,'restaurant_id') else id})
     return confirm
 
 
 
-@rest_router.delete('/delete/{id_neighb: int}',
+@rest_router.delete('/delete',
                         response_description='delete a restaurant',
-                        status_code=status.HTTP_200_OK,
-                        response_model=int)
+                        status_code=status.HTTP_200_OK)
 def delete_restaurant(request: Request, id: Annotated[str, Body(embed=True)]):
     """
     DELETE A RESTAURANT
 
     Args:
-        id(str): id of restaurant.
+        id(str): restaurant_id.
 
     Returns:
         params(HttpParams)
         the deleted restaurant.
     """
     coll: Collection = request.app.db_restaurants
-    # convert id if needed
-    objectId = IdMapper().toObj(id)
-    result = coll.delete_one({'_id': objectId})
-    if result.deleted_count==1:
-        logging(f'Success - Neighborhood #{id} DELETED')
-        return id
+    result = coll.delete_many({'restaurant_id': id})
+    if result.deleted_count>0:
+        return {'restaurant_id': id, 'deleted_nbr': result.deleted_count}
     else:
-        logging(f'Neighborhood #{id} not found!')
-        return 0
+        raise HTTPException(status_code=404, detail=f'Restaurant #{id} not found!')

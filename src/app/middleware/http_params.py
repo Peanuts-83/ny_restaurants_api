@@ -1,9 +1,9 @@
 from enum import Enum
-from typing import Any, Union
-from urllib.error import HTTPError
+from typing import Any
 from fastapi import HTTPException
-from matplotlib.pyplot import isinteractive
 from pydantic import BaseModel, Field
+
+from ..models.utils import IdMapper
 
 ### OPERATOR ENUMS #
 """
@@ -57,6 +57,9 @@ class Filter():
     def __init__(self, **args):
         super().__init__()
         for key, value in args.items():
+            if key=='id':
+                key='_id'
+                value=IdMapper().toObj(value)
             setattr(self, key, value)
 
     def apply(self):
@@ -64,6 +67,8 @@ class Filter():
 
     def make(self):
         l_request = {}
+        if all(param is None for param in [self.value, self.operator, self.operator_field, self.operator_list, self.field, self.filter_elements]):
+            return l_request
         if not self.filter_elements:
             # SingleFilter
             l_request = self.doBuildSingle()

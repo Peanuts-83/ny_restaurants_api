@@ -1,3 +1,4 @@
+import json
 from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -17,19 +18,32 @@ class CustomMiddleware(BaseHTTPMiddleware):
         try:
             return await call_next(request)
         except HTTPException as e:
-            error_detail = "Internal server error."
             status_code = 500
+            error_detail = "Internal server error."
+            error_content = {"detail":error_detail}
             if hasattr(e, "status_code"):
                 status_code = e.status_code
             if hasattr(e,"detail"):
                 error_detail = e.detail
-            return Response(status_code=status_code,content=error_detail)
+            if (hasattr(e,"obj")):
+                error_content["obj"] = e.obj
+            if (hasattr(e,"args")):
+                error_content["args"] = e.args
+            if (hasattr(e,"_errors")):
+                error_content["errors"] = e._errors
+            return Response(status_code=status_code,content=json.dumps(error_content), headers={"Content-Type":"application/json"})
         except Exception as e:
-            error_detail = "Internal server error."
             status_code = 500
-            error_errors = []
+            error_detail = "Internal server error."
+            error_content = {"detail":error_detail}
             if hasattr(e, "status_code"):
                 status_code = e.status_code
             if hasattr(e,"detail"):
                 error_detail = e.detail
-            return Response(status_code=status_code,content=[error_detail,e])
+            if (hasattr(e,"obj")):
+                error_content["obj"] = e.obj
+            if (hasattr(e,"args")):
+                error_content["args"] = e.args
+            if (hasattr(e,"_errors")):
+                error_content["errors"] = e._errors
+            return Response(status_code=status_code,content=json.dumps(error_content), headers={"Content-Type":"application/json"})

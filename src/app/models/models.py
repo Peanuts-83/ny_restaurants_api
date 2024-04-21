@@ -1,7 +1,6 @@
 from datetime import datetime
-import typing
 from bson import ObjectId
-from pydantic import BaseModel, Field, ValidationError, conlist
+from pydantic import BaseModel, ValidationError, conlist
 
 
 ### Restaurant models #
@@ -18,6 +17,11 @@ class Address(BaseModel):
     zipcode: str
 
 class Restaurant(BaseModel):
+    """
+    By default, MongoDB _id field is not returned in the response body. If you want to include the _id field in the response body, you need to explicitly specify it in your query projection.
+    ex: projection = {"_id": 1, "other_field": 1}
+        cursor = collection.find(query, projection)
+    """
     _id: ObjectId
     address: Address
     borough: str
@@ -33,7 +37,8 @@ class Geometry(BaseModel):
     type: str
 
 class Neighborhood(BaseModel):
-    _id: ObjectId
+    _id: ObjectId # _id is treated as private and not returned by fastapi
+    id: str = None # _id processed on request
     geometry: Geometry
     name: str
 
