@@ -14,7 +14,7 @@ neighb_router = APIRouter(prefix='/neighborhood')
             response_description='get first neighborhood in the list',
             status_code=status.HTTP_200_OK,
             response_model=Neighborhood)
-def read_one_neighborhood(request: Request, params: Annotated[HttpParams, Body(embed=True)] = HttpParams(nbr=1)):
+def read_one_neighborhood(request: Request, params: Annotated[HttpParams, Body(embed=True)] = HttpParams()):
     """
     TEST for getting one neighborhood
     """
@@ -24,7 +24,7 @@ def read_one_neighborhood(request: Request, params: Annotated[HttpParams, Body(e
     return {**result, 'id': IdMapper().toStr(result['_id'])}
 
 
-@neighb_router.post('/liste',
+@neighb_router.post('/list',
             response_description='get list of neighborhoods',
             status_code=status.HTTP_200_OK,
             response_model=list[Neighborhood])

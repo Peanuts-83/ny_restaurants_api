@@ -1,6 +1,6 @@
 from datetime import datetime
 from bson import ObjectId
-from pydantic import BaseModel, ValidationError, conlist
+from pydantic import BaseModel, Field, ValidationError, conlist
 
 
 ### Restaurant models #
@@ -41,6 +41,13 @@ class Neighborhood(BaseModel):
     id: str = None # _id processed on request
     geometry: Geometry
     name: str
+
+### Point models #
+class Point(BaseModel):
+    longitude: float = Field(float, gte=-180, lte=180)
+    latitude: float = Field(float, gte=-90, lte=90)
+
+
 
 try:
     Restaurant()

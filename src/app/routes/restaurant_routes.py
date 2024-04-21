@@ -14,7 +14,7 @@ rest_router = APIRouter()
             response_description='get first restaurant in the list',
             status_code=status.HTTP_200_OK,
             response_model=Restaurant)
-def read_one_restaurant(request: Request, params: Annotated[HttpParams, Body(embed=True)] = HttpParams(nbr=1)):
+def read_one_restaurant(request: Request, params: Annotated[HttpParams, Body(embed=True)] = HttpParams()):
     """
     TEST for getting one restaurant
     """
@@ -23,7 +23,7 @@ def read_one_restaurant(request: Request, params: Annotated[HttpParams, Body(emb
     return coll.find_one({})
 
 
-@rest_router.post('/liste',
+@rest_router.post('/list',
             response_description='get list of restaurants',
             status_code=status.HTTP_200_OK,
             response_model=list[Restaurant])
