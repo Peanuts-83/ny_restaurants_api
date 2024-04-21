@@ -16,9 +16,13 @@ Don't expose your private credentials online, use [dotenv](https://pypi.org/proj
 
 .env file (at root level) is added to .gitignore, so you will have to define your own .env file with the credentials required for mongodb connexion.
 
+```env
+MONGO_URI=mongodb+srv://<user>:<password>@<mongo_cluster>
+```
+
 ## Mongodb
 
-You can connect your Atlas cluster with [Pymongo](https://www.mongodb.com/docs/drivers/pymongo/).
+You can connect your Atlas cluster with [Pymongo](https://www.mongodb.com/docs/drivers/pymongo/) library.
 
 This way you shall access your cluster, databases and collections.
 
@@ -48,4 +52,27 @@ You will find a nice startup for API setup [here](https://www.mongodb.com/langua
 
 ## Debugg in vsCode
 
-**launch.json** has been set up at root level for debugging purpose.
+**launch.json** has been set up in ./.vscode/ for debugging purpose (modify values accordingly to your project). Just place the file at the right place and click on **Start debugging** button from **Run and debugg** menu.
+
+```json
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: FastAPI",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            // "justMyCode": false, // to debugg also in libraries!
+            "args": [
+                "src.app.main:app",
+                "--reload"
+            ],
+            "jinja": true
+        }
+    ]
+}
+```
