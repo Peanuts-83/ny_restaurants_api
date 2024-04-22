@@ -1,11 +1,12 @@
-from typing import Annotated
+from typing import Annotated, Any, Dict, List
 from fastapi import APIRouter, Body, HTTPException, status, Request
 from fastapi.encoders import jsonable_encoder
+from pydantic import BeforeValidator
 from pymongo.collection import Collection
 
 
 from ..middleware.http_params import OP_FIELD, HttpParams, Filter
-from ..models.models import Restaurant
+from ..models.models import Restaurant, check_dict_length
 
 ### RESTAURANT_ROUTER
 rest_router = APIRouter()
@@ -98,6 +99,48 @@ def update_restaurant(request: Request, id: Annotated[str, Body(embed=True)], ch
     confirm = coll.find_one({'restaurant_id': changes['restaurant_id'] if hasattr(changes,'restaurant_id') else id})
     return confirm
 
+
+@rest_router.put('/update/field/name/',
+            response_description='change field name')
+def update_restaurants_field(request:Request, field:Annotated[str, Body(embed=True)], new_field:Annotated[str, Body(embed=True)]):
+    """
+    FOR DATABASE MANAGMENT ONLY!
+    Change a field name
+
+    returns nbr of items processed.
+    """
+    coll = request.app.db_restaurants
+    cursor = coll.update_many(
+        {field: {"$exists": True}},
+        {"$rename": {
+            field: new_field
+        }}
+    )
+    return f"Items processed: {cursor.matched_count}"
+
+
+@rest_router.put('/update/field/set/',
+                 response_description='set field value')
+def update_restaurants_value(request:Request, field:Annotated[str, Body(embed=True)], values:Annotated[List[Dict[str, Any]], Body(embed=True)]):
+    """
+    FOR DATABASE MANAGMENT ONLY!
+    Set a field value and creates the field if needed.
+    values:
+        {field: value}[] : only one item supported for each value.
+
+    return {<field>: number_of_items_processed}
+    """
+    coll = request.app.db_restaurants
+    result = {}
+    for value in values:
+        if len(value)>1:
+            raise HTTPException(status_code=422, detail=f"Each value should contain only one item. Error value: {value}",)
+        cursor = coll.update_many(
+            {field: {"$exists": True}},
+            {"$set": value}
+        )
+        result[list(value.keys())[0]] = cursor.matched_count
+    return f"Items processed: {result}"
 
 
 @rest_router.delete('/delete',

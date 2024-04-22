@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, Dict
 from bson import ObjectId
 from pydantic import BaseModel, Field, ValidationError, conlist
 
@@ -12,7 +13,8 @@ class Grade(BaseModel):
 
 class Address(BaseModel):
     building: str
-    coord: list[float]
+    coordinates: list[float]
+    type: str
     street: str
     zipcode: str
 
@@ -42,12 +44,41 @@ class Neighborhood(BaseModel):
     geometry: Geometry
     name: str
 
-### Point models #
+### Geospatial models #
 class Point(BaseModel):
     longitude: float = Field(float, gte=-180, lte=180)
     latitude: float = Field(float, gte=-90, lte=90)
 
+class Distance(BaseModel):
+    min: int
+    max: int
 
+
+### Utils models #
+class SingleItemDict(BaseModel):
+    val: Dict[str, Any]
+
+def check_dict_length(arr):
+    """
+    Custom validator to ensure len(dict) == 1.
+    """
+    for v in arr:
+        if len(v) != 1:
+            raise ValueError("Dictionnary param must contain exactly one item.")
+    return v
+
+# class FieldSet(BaseModel):
+#     field: str
+#     values: List[Dict] = Field(List[Dict] )
+#     @validator("values")
+#     def check_dict_length(arr: List[Dict]):
+#         """
+#         Custom validator to ensure len(dict) == 1.
+#         """
+#         for v in arr:
+#             if len(v) != 1:
+#                 raise ValueError("Dictionnary param must contain exactly one item.")
+#         return v
 
 try:
     Restaurant()
