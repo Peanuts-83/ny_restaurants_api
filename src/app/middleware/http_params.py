@@ -78,29 +78,29 @@ class Filter():
             l_request = self.doBuildCombined(elements)
         return l_request
 
-    def doBuildSingle(self, operator_field = operator_field, field = field, value = value) -> dict:
+    def doBuildSingle(self) -> dict:
         l_request = {}
         # {<field>: {$eq: <value>}}
-        if operator_field == OP_FIELD.EQ.value:
-            l_request[field] = value
+        if self.operator_field == OP_FIELD.EQ.value:
+            l_request[self.field] = self.value
         # {<field>: {$ne: <value>}}
-        elif operator_field == OP_FIELD.NE.value:
-            l_request[field] = {operator_field: value}
+        elif self.operator_field == OP_FIELD.NE.value:
+            l_request[self.field] = {self.operator_field: self.value}
         # {<field>: {$not: <value{}>}}
-        elif operator_field == OP_FIELD.NOT.value: # value ex. {"$gt":5}
-            self.checkForDict(value).value # Dict required
-            l_request[field] = {operator_field: value}
+        elif self.operator_field == OP_FIELD.NOT.value: # value ex. {"$gt":5}
+            self.checkForDict(self.value).value # Dict required
+            l_request[self.field] = {self.operator_field: self.value}
         # {<field>: {$regex: <value>}}
-        elif operator_field == OP_FIELD.CONTAIN.value:
-            l_request[field] = {operator_field: f".*{value}.*", "$options": "i"}
+        elif self.operator_field == OP_FIELD.CONTAIN.value:
+            l_request[self.field] = {self.operator_field: f".*{self.value}.*", "$options": "i"}
         # {<field>: {$in: <value[]>}}
-        elif operator_field == OP_FIELD.IN.value or operator_field == OP_FIELD.NOT_IN.value:
-            self.checkForList(value) # List required
-            l_request[field] = {operator_field: value}
+        elif self.operator_field == OP_FIELD.IN.value or self.operator_field == OP_FIELD.NOT_IN.value:
+            self.checkForList(self.value) # List required
+            l_request[self.field] = {self.operator_field: self.value}
         # {<field>: {$lt|$lte|$gt|$gte: <value>}}
-        elif operator_field in [OP_FIELD.GT.value, OP_FIELD.GTE.value, OP_FIELD.LT.value, OP_FIELD.LTE.value]:
+        elif self.operator_field in [OP_FIELD.GT.value, OP_FIELD.GTE.value, OP_FIELD.LT.value, OP_FIELD.LTE.value]:
             #  can operate on numbers and strings
-            l_request[field] = {operator_field: value}
+            l_request[self.field] = {self.operator_field: self.value}
         return l_request
 
     def doBuildCombined(self, elements) -> dict:

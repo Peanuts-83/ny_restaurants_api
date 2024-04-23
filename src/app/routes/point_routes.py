@@ -8,7 +8,6 @@ from fastapi.routing import APIRoute
 
 from ..models.utils import IdMapper
 
-from ..modules.point.geospatial import doCreate2dSphere
 from ..models.models import Distance, Neighborhood, Point, Restaurant
 
 from ..middleware.http_params import Filter, HttpParams
@@ -29,7 +28,6 @@ def get_neighborhood(request: Request, coord:Annotated[Point, Body(embed=True)],
     """
     # search on neighborhood collection
     coll: Collection = request.app.db_neighborhoods
-    doCreate2dSphere(coll, "geometry")
     result = coll.find_one({
         "geometry": {
             "$geoIntersects": {
@@ -70,10 +68,9 @@ def get_restaurants(request:Request, coord: Annotated[Point, Body(embed=True)], 
     else:
         skip = 0
         params.nbr=0
-    doCreate2dSphere(coll, 'address.coordinates')
     if params.page_nbr>1:
         cursor = coll.find({
-            "address.coordinates": {
+            "address.coord": {
                 "$near": {
                     "$geometry": {"type": "Point", "coordinates":[coord.longitude, coord.latitude]},
                     "$minDistance": dist.min,
@@ -83,7 +80,7 @@ def get_restaurants(request:Request, coord: Annotated[Point, Body(embed=True)], 
         }).skip(skip).limit(params.nbr if hasattr(params, 'nbr') else 0)
     else:
         cursor = coll.find({
-            "address.coordinates": {
+            "address.coord": {
                 "$near": {
                     "$geometry": {"type": "Point", "coordinates":[coord.longitude, coord.latitude]},
                     "$minDistance": dist.min,

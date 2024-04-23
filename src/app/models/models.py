@@ -13,8 +13,7 @@ class Grade(BaseModel):
 
 class Address(BaseModel):
     building: str
-    coordinates: list[float]
-    type: str
+    coord: list[float]
     street: str
     zipcode: str
 
