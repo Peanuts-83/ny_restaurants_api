@@ -1,0 +1,20 @@
+version: '3'
+services:
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: fastapi_dockerfile
+    ports:
+      - "8000:8000" # host_port:container_port
+    env_file:
+      - .env # give access to credentials
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx_dockerfile
+    ports:
+      - "8080:80" # host_port:container_port
+    depends_on:
+      - fastapi # ref to fastapi service above
