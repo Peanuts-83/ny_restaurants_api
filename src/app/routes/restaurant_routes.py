@@ -78,7 +78,9 @@ def read_list_restaurants(
     response_model=Restaurant,
 )
 def create_restaurant(
-    request: Request, restaurant: Annotated[Restaurant, Body(embed=True)]
+    request: Request,
+    restaurant: Annotated[Restaurant, Body(embed=True)],
+    params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
     CREATE A RESTAURANT
@@ -106,6 +108,7 @@ def update_restaurant(
     request: Request,
     id: Annotated[str, Body(embed=True)],
     changes: Annotated[dict, Body(embed=True)],
+    params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
     UPDATE A RESTAURANT
@@ -137,6 +140,7 @@ def update_restaurants_field(
     request: Request,
     field: Annotated[str, Body(embed=True)],
     new_field: Annotated[str, Body(embed=True)],
+    params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
     FOR DATABASE MANAGMENT ONLY!
@@ -156,6 +160,7 @@ def update_restaurants_value(
     request: Request,
     field: Annotated[str, Body(embed=True)],
     values: Annotated[List[Dict[str, Any]], Body(embed=True)],
+    params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
     FOR DATABASE MANAGMENT ONLY!
@@ -213,7 +218,11 @@ def delete_restaurant_field(
     response_description="delete a restaurant",
     status_code=status.HTTP_200_OK,
 )
-def delete_restaurant(request: Request, id: Annotated[str, Body(embed=True)]):
+def delete_restaurant(
+    request: Request,
+    id: Annotated[str, Body(embed=True)],
+    params: Annotated[HttpParams, Body(embed=True)],
+):
     """
     DELETE A RESTAURANT
 

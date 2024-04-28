@@ -14,7 +14,10 @@ neighb_router = APIRouter(prefix='/neighborhood')
             response_description='get first neighborhood in the list',
             status_code=status.HTTP_200_OK,
             response_model=Neighborhood)
-def read_one_neighborhood(request: Request, params: Annotated[HttpParams, Body(embed=True)] = HttpParams()):
+def read_one_neighborhood(
+    request: Request,
+    params: Annotated[HttpParams, Body(embed=True)] = HttpParams()
+    ):
     """
     TEST for getting one neighborhood
     """
@@ -28,7 +31,10 @@ def read_one_neighborhood(request: Request, params: Annotated[HttpParams, Body(e
             response_description='get list of neighborhoods',
             status_code=status.HTTP_200_OK,
             response_model=list[Neighborhood])
-def read_list_neighborhoods(request: Request, params: Annotated[HttpParams, Body(embed=True)] = HttpParams(nbr=5,page_nbr=1, filters={"value": "Bedford", "operator_field": OP_FIELD.CONTAIN, "field": "name"})):
+def read_list_neighborhoods(
+    request: Request,
+    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(nbr=5,page_nbr=1, filters={"value": "Bedford", "operator_field": OP_FIELD.CONTAIN, "field": "name"})
+    ):
     """
     GET NEIGHBORHOODS LIST
 
@@ -58,7 +64,12 @@ def read_list_neighborhoods(request: Request, params: Annotated[HttpParams, Body
                         response_description='update a neighborhood',
                         status_code=status.HTTP_200_OK,
                         response_model=Neighborhood)
-def update_neighborhood(request: Request, id: Annotated[str, Body(embed=True)], changes: Annotated[dict, Body(embed=True)]):
+def update_neighborhood(
+    request: Request,
+    id: Annotated[str, Body(embed=True)],
+    changes: Annotated[dict, Body(embed=True)],
+    params: Annotated[HttpParams, Body(embed=True)]
+    ):
     """
     UPDATE A NEIGHBORHOOD
 
