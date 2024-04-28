@@ -1,4 +1,10 @@
-# Newyork restaurants - WIP...
+[![Python](https://img.shields.io/badge/Language-Python-info?logo=python&logoColor=white&color=3776AB)](https://www.python.org/)
+[![Fastapi](https://img.shields.io/badge/Code-Fastapi-info?logo=fastapi&logoColor=white&color=009688)](https://fastapi.tiangolo.com/)
+[![MongoDB](https://img.shields.io/badge/Database-MongoDB-info?logo=mongodb&logoColor=white&color=47A248)](https://www.mongodb.com/)
+[![Docker](https://img.shields.io/badge/Deploy-Docker-info?logo=docker&logoColor=white&color=2496ED)](https://www.docker.com/)
+[![OpenApi](https://img.shields.io/badge/Doc-OpenApi-info?logo=openapiinitiative&logoColor=white&color=6BA539)](https://www.openapis.org/)
+
+# Newyork restaurants API
 
 [Fastapi](https://fastapi.tiangolo.com/) (python) app linked to [Atlas-Mongodb database](https://www.mongodb.com/).
 
@@ -6,7 +12,9 @@ The purpose of this app is to provide quick and simple api to support any front-
 
 ## Fastapi
 
-Over the fast, intuitive and easy to code framework it provides, fastapi is totally standard-based giving access to wonderfull [OpenAPI (Swagger)](https://github.com/OAI/OpenAPI-Specification) and [JSON Schema](https://json-schema.org/).
+Over the fast, intuitive and easy to Doc OpenApi info proviopenapiinitiative, fastapi is totally standard-based giving access to wonderfull [OpenAPI (Swagger)](https://github.com/OAI/OpenAPI-Specification) and [JSON Schema](https://json-schema.org/).
+
+By the way, a friend of mine told me Python was one of the worst code language for heat climate change, because it's not a compiled but interpreted language, low to run and large on space disk use ;) Up your choice to use it or not.
 
 ### Setup project
 
@@ -33,8 +41,16 @@ Once served:
 * OpenApi documentation is served at: <http://localhost:8000/docs>
 * Redoc documentation is served at: <http://localhost:8000/redoc>
 
+### Debug project
+
+Json conf file is available at .vscode/launch.json, providing abillity to debug api app from "Run and debug" menu in vsCode.
+Just click **Play** button in front of **Python debugger: FastAPi**.
+
+This way you can place breakpoints in your code and access available data at any moment.
+
 **OpenApi illustration**
 ![swagger](./assets/swagger.png)
+
 
 ## Security
 
