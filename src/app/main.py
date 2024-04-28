@@ -7,9 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from pymongo.collection import Collection
 
-from app.middleware.http_middleware import CustomMiddleware
-from app.demo.demo_routes import router as demo_router
-from app.routes.router import router
+from .middleware.http_middleware import CustomMiddleware
+from .demo.demo_routes import router as demo_router
+from .routes.router import router
 
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
