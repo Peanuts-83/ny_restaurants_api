@@ -39,7 +39,7 @@ class Geometry(BaseModel):
 
 class Neighborhood(BaseModel):
     _id: ObjectId # _id is treated as private and not returned by fastapi
-    id: str = None # _id processed on request
+    # id: str = None # _id processed on request
     geometry: Geometry
     name: str
 

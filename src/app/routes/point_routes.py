@@ -38,7 +38,6 @@ def get_neighborhood(
     """
     # search on neighborhood collection
     coll: Collection = request.app.db_neighborhoods
-    skip, limit = httpParamsInterpreter(params)
     result = coll.find_one(
         {
             "geometry": {
@@ -50,10 +49,12 @@ def get_neighborhood(
                 }
             }
         }
-    ).skip(skip).limit(limit)
+    )
     try:
-        result
-        return {**result, "id": IdMapper().toStr(result["_id"])}
+        result = dict(result)
+        # result = {**result, "id": IdMapper().toStr(result["_id"])}
+        del result['_id']
+        return result #
     except:
         raise HTTPException(
             status_code=404, detail=f"No neighborhood match for coordinates {coord}."

@@ -101,7 +101,7 @@ def create_restaurant(
 
 
 @rest_router.put(
-    "/update/",
+    "/update",
     response_description="update a restaurant",
     status_code=status.HTTP_200_OK,
     response_model=Restaurant,
