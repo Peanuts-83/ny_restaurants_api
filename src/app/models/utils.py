@@ -1,7 +1,6 @@
 from enum import Enum
 from bson import ObjectId
 
-from ..middleware.http_params import HttpParams
 
 ### ObjectId mapper #
 class IdMapper():
