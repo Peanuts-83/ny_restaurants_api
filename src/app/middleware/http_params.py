@@ -189,3 +189,12 @@ class HttpParams(BaseModel):
     nbr: int = Field(default=None, ge=0)
     page_nbr: int = Field(default=None, ge=1)
     filters: dict = Field(default=None)
+
+### HttpParamsInterpreter #
+def httpParamsInterpreter(params: HttpParams) -> list[int]:
+    """
+    Return skip and limit values.
+    """
+    skip = (params.page_nbr - 1) * params.nbr if params.page_nbr else 0
+    limit = params.nbr if params.nbr else 0
+    return [skip, limit]

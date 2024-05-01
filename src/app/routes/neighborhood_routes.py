@@ -2,7 +2,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, HTTPException, status, Request
 from pymongo.collection import Collection
 
-from ..middleware.http_params import OP_FIELD, Filter, HttpParams
+from ..middleware.http_params import OP_FIELD, Filter, HttpParams, httpParamsInterpreter
 from ..models.utils import IdMapper
 from ..models.models import Neighborhood
 
@@ -23,7 +23,8 @@ def read_one_neighborhood(
     """
     # gain autocompletion by strongly typing collection
     coll: Collection = request.app.db_neighborhoods
-    result = coll.find_one({})
+    skip, limit = httpParamsInterpreter(params)
+    result = coll.find_one({}).skip(skip).limit(limit)
     return {**result, 'id': IdMapper().toStr(result['_id'])}
 
 
@@ -38,22 +39,19 @@ def read_list_neighborhoods(
     """
     GET NEIGHBORHOODS LIST
 
-    Args:
-        params(HttpParams): required.
-            nbr(int): number of items required.
-            page_nbr(int): page number.
-            filters(Filter): filters for request.
-    Returns:
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+
+    @return:\n
         list[Neighborhood]: the requested list with idObject as str.
     """
     coll: Collection = request.app.db_neighborhoods
-    projection = {'_id':1,'geometry':1,'name':1}
-    skip = (params.page_nbr - 1) * params.nbr
+    projection = {'_id':1,'geometry':1,'name':1} # display _id Object
+    skip, limit = httpParamsInterpreter(params)
     query = Filter(**params.filters).make()
-    if params.page_nbr>1:
-        neighborhoods_cursor: list[dict] = coll.find(query, projection).skip(skip).limit(params.nbr)
-    else:
-        neighborhoods_cursor: list[dict] = coll.find(query, projection).limit(params.nbr)
+    neighborhoods_cursor: list[dict] = coll.find(query, projection).skip(skip).limit(limit)
     # id = idObject to str
     result = [{**neighb, 'id': IdMapper().toStr(neighb['_id'])} for neighb in neighborhoods_cursor]
     return result
@@ -66,22 +64,30 @@ def read_list_neighborhoods(
                         response_model=Neighborhood)
 def update_neighborhood(
     request: Request,
-    id: Annotated[str, Body(embed=True)],
+    name: Annotated[str, Body(embed=True)],
     changes: Annotated[dict, Body(embed=True)],
-    params: Annotated[HttpParams, Body(embed=True)]
+    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(nbr=1, page_nbr=1)
     ):
     """
     UPDATE A NEIGHBORHOOD
 
-    Args:
-        changes(dict): {id, changed_elements}.
+    @param name:\n
+        str: neighborhood name.\n
 
-    Returns:
+    @param changes:\n
+        dict: {changed_elements}.\n
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+
+    @return:\n
         the updated neighborhood.
     """
     coll: Collection = request.app.db_neighborhoods
-    result = coll.update_one({'_id': IdMapper().toObj(id)}, {"$set": changes})
+    result = coll.update_one({'name': name}, {"$set": changes})
     if result.matched_count==0:
-        raise HTTPException(status_code=404, detail={"update": {"error": f"_id {id} not found"}})
-    confirm = coll.find_one({'_id': IdMapper().toObj(id)})
+        raise HTTPException(status_code=404, detail={"update": {"error": f'name "{name}" not found'}})
+    confirm = coll.find_one({'name': name})
     return confirm

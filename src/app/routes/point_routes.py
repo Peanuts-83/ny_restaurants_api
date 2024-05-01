@@ -12,7 +12,7 @@ from ..models.utils import IdMapper
 
 from ..models.models import Distance, Geometry, Neighborhood, Point, Restaurant
 
-from ..middleware.http_params import Filter, HttpParams
+from ..middleware.http_params import Filter, HttpParams, httpParamsInterpreter
 
 
 point_router = APIRouter(prefix="/point")
@@ -30,13 +30,15 @@ def get_neighborhood(
     params: Annotated[HttpParams, Body(embed=True)] = HttpParams(),
 ):
     """
-    Get the corresponding neighborhood for a point coordinates [long, lat]\n
+    Get the corresponding neighborhood for a point coordinates [long, lat]
+
     @param coord:\n
         longitude <float[-180:180]>\n
         latitude <float[-90:90]>\n
     """
     # search on neighborhood collection
     coll: Collection = request.app.db_neighborhoods
+    skip, limit = httpParamsInterpreter(params)
     result = coll.find_one(
         {
             "geometry": {
@@ -48,7 +50,7 @@ def get_neighborhood(
                 }
             }
         }
-    )
+    ).skip(skip).limit(limit)
     try:
         result
         return {**result, "id": IdMapper().toStr(result["_id"])}
@@ -81,13 +83,7 @@ def get_restaurants(
         max <int> : distance in meters (default=500)\n
     """
     coll: Collection = request.app.db_restaurants
-    if (hasattr(params, "page_nbr") and hasattr(params, "nbr")) and (
-        params.page_nbr != None and params.nbr != None
-    ):
-        skip = (params.page_nbr - 1) * params.nbr
-    else:
-        skip = 0
-        params.nbr = 0
+    skip, limit = httpParamsInterpreter(params)
     cursor = (
         coll.find(
             {
@@ -102,9 +98,7 @@ def get_restaurants(
                     }
                 }
             }
-        )
-        .skip(skip)
-        .limit(params.nbr if hasattr(params, "nbr") else 0)
+        ).skip(skip).limit(limit)
     )
     return list(cursor)
 
@@ -139,17 +133,7 @@ def get_restaurants_within(
         coordinates: list[list[list[longitude <float[-180:180]>, latitude <float[-90:90]>]]]\n
     """
     coll: Collection = request.app.db_restaurants
-    if (hasattr(params, "page_nbr") and hasattr(params, "nbr")) and (
-        params.page_nbr != None and params.nbr != None
-    ):
-        skip = (params.page_nbr - 1) * params.nbr
-    else:
-        skip = 0
-        params.nbr = 0
-    cursor = (
-        coll.find({"address.coord": {"$geoWithin": {"$geometry": jsonable_encoder(shape)}}})
-        .skip(skip)
-        .limit(params.nbr if hasattr(params, "nbr") else 0)
-    )
+    skip, limit = httpParamsInterpreter(params)
+    cursor = coll.find({"address.coord": {"$geoWithin": {"$geometry": jsonable_encoder(shape)}}}).skip(skip).limit(limit)
     result = list(cursor)
     return result

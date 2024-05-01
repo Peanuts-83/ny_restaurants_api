@@ -5,7 +5,7 @@ from pydantic import BeforeValidator
 from pymongo.collection import Collection
 
 
-from ..middleware.http_params import OP_FIELD, HttpParams, Filter
+from ..middleware.http_params import OP_FIELD, HttpParams, Filter, httpParamsInterpreter
 from ..models.models import Restaurant, check_dict_length
 
 ### RESTAURANT_ROUTER
@@ -26,6 +26,7 @@ def read_one_restaurant(
     """
     # gain autocompletion by strongly typing collection
     coll: Collection = request.app.db_restaurants
+    skip, limit = httpParamsInterpreter(params)
     return coll.find_one({})
 
 
@@ -50,22 +51,18 @@ def read_list_restaurants(
     """
     GET RESTAURANTS LIST
 
-    Args:
-        params(HttpParams): required.
-            nbr(int): number of items required.
-            page_nbr(int): page number.
-            filters(Filter): filters for request.
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
 
-    Returns:
-        list[Restaurant]: the requested list.
+    @return:\n
+        list[Restaurant]: the requested list.\n
     """
     coll: Collection = request.app.db_restaurants
-    skip = (params.page_nbr - 1) * params.nbr
+    skip, limit = httpParamsInterpreter(params)
     query = Filter(**params.filters).make()
-    if params.page_nbr > 1:
-        restaurants_cursor: list[dict] = coll.find(query).skip(skip).limit(params.nbr)
-    else:
-        restaurants_cursor: list[dict] = coll.find(query).limit(params.nbr)
+    restaurants_cursor: list[dict] = coll.find(query).skip(skip).limit(limit)
     result = list(restaurants_cursor)
     print(f"Mongodb request: {query}")
     return result
@@ -85,11 +82,16 @@ def create_restaurant(
     """
     CREATE A RESTAURANT
 
-    Args:
-        restaurant(Restaurant): restaurant data.
+    @param restaurant:\n
+        Restaurant: datas for new restaurant.\n
 
-    Returns:
-        created restaurant.
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+
+    @return:\n
+        Restaurant: created restaurant.
     """
     coll: Collection = request.app.db_restaurants
     restaurant = jsonable_encoder(restaurant)
@@ -113,11 +115,19 @@ def update_restaurant(
     """
     UPDATE A RESTAURANT
 
-    Args:
-        changes(dict): {restaurant_id, changed_elements}.
+    @param id:\n
+        str: restaurant's id.\n
 
-    Returns:
-        the updated neighborhood.
+    @param changes:\n
+        Dictionnary: {changed_elements}.\n
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+
+    @return:\n
+        Restaurant: the updated restaurant.
     """
     coll: Collection = request.app.db_restaurants
     result = coll.update_one({"restaurant_id": id}, {"$set": changes})
@@ -143,16 +153,29 @@ def update_restaurants_field(
     params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
-    FOR DATABASE MANAGMENT ONLY!
-    Change a field name
+    FOR DATABASE MANAGMENT ONLY! Change a field name.
 
-    returns nbr of items processed.
+    @param field:\n
+        str: field name to be changed.\n
+
+    @param new_field:\n
+        str: new name for the field.\n
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+
+    @return:\n
+        {field, new_field, nbr of items processed}.
     """
     coll = request.app.db_restaurants
+    skip, limit = httpParamsInterpreter(params)
     cursor = coll.update_many(
         {field: {"$exists": True}}, {"$rename": {field: new_field}}
-    )
-    return f"Items processed: {cursor.matched_count}"
+    ).skip(skip).limit(limit)
+    result = {'field': field, 'new field': new_field, 'nbr of results': cursor.matched_count}
+    return f"Items processed: result"
 
 
 @rest_router.put("/update/field/set/", response_description="set field value")
@@ -163,14 +186,24 @@ def update_restaurants_value(
     params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
-    FOR DATABASE MANAGMENT ONLY!
-    Set a field value and creates the field if needed.
-    values:
-        {field: value}[] : only one item supported for each value.
+    FOR DATABASE MANAGMENT ONLY! Set a field value and create the field if needed.
 
-    return {<field>: number_of_items_processed}
+    @param field:\n
+        str: field to be changed.\n
+
+    @param values:\n
+        {key<str>: value<any>}[] : only one item supported for each value.\n
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+
+    @return:\n
+       {field: number of items processed}[]
     """
     coll = request.app.db_restaurants
+    skip, limit = httpParamsInterpreter(params)
     result = {}
     for value in values:
         if len(value) > 1:
@@ -178,7 +211,7 @@ def update_restaurants_value(
                 status_code=422,
                 detail=f"Each value should contain only one item. Error value: {value}",
             )
-        cursor = coll.update_many({field: {"$exists": True}}, {"$set": value})
+        cursor = coll.update_many({field: {"$exists": True}}, {"$set": value}).skip(skip).limit(limit)
         result[list(value.keys())[0]] = cursor.matched_count
     return f"Items processed: {result}"
 
@@ -190,20 +223,25 @@ def delete_restaurant_field(
     params: Annotated[HttpParams, Body(embed=True)] = None,
 ):
     """
-    FOR DATABASE MANAGMENT ONLY!
-    Unset a field of a collection.
-    params:
-        field<str> : target fiel to unset - Required.
-        params.filters<Filter>: Base filter for HttpParams - Optional.
+    FOR DATABASE MANAGMENT ONLY! Unset a field of a collection.
 
-    return {<field>: number_of_items_processed}
+    @param field:\n
+        str : target field to unset.\n
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+
+    @return:\n
+        {<field>: number_of_items_processed}
     """
     coll = request.app.db_restaurants
+    skip, limit = httpParamsInterpreter(params)
     query = {}
     if params.filters and len(params.filters) > 0:
         query = Filter(**params.filters).make()
-    print(query, {"$unset": field})
-    result = coll.update_many(query, {"$unset": {field: ""}})
+    result = coll.update_many(query, {"$unset": {field: ""}}).skip(skip).limit(limit)
     if result.modified_count > 0:
         return {field: result.modified_count}
     else:
@@ -226,12 +264,16 @@ def delete_restaurant(
     """
     DELETE A RESTAURANT
 
-    Args:
-        id(str): restaurant_id.
+    @param id:\n
+        str: restaurant_id.\n
 
-    Returns:
-        params(HttpParams)
-        the deleted restaurant.
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+
+    @return:\n
+        {restaurant_id: str, deleted_nbr: int}
     """
     coll: Collection = request.app.db_restaurants
     result = coll.delete_many({"restaurant_id": id})

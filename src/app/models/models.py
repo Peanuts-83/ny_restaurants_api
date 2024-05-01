@@ -66,18 +66,6 @@ def check_dict_length(arr):
             raise ValueError("Dictionnary param must contain exactly one item.")
     return v
 
-# class FieldSet(BaseModel):
-#     field: str
-#     values: List[Dict] = Field(List[Dict] )
-#     @validator("values")
-#     def check_dict_length(arr: List[Dict]):
-#         """
-#         Custom validator to ensure len(dict) == 1.
-#         """
-#         for v in arr:
-#             if len(v) != 1:
-#                 raise ValueError("Dictionnary param must contain exactly one item.")
-#         return v
 
 try:
     Restaurant()
