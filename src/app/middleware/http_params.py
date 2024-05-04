@@ -1,7 +1,8 @@
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
+from pymongo import ASCENDING, DESCENDING
 
 from ..models.utils import IdMapper
 
@@ -174,6 +175,13 @@ class CombinedFilter(Filter):
                 return False
 
 
+class Sort(int,Enum):
+    """
+    Sort by order <ASC|DESC>.
+    """
+    ASC = 1
+    DESC = -1
+
 # Error object returned in response.body #
 class ValueError():
     ValueError: str
@@ -189,6 +197,18 @@ class HttpParams(BaseModel):
     nbr: int = Field(default=None, ge=0)
     page_nbr: int = Field(default=None, ge=1)
     filters: dict = Field(default=None)
+    sort: Optional[tuple[str,Sort]] = Field(default=None)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "nbr": 0,
+                "page_nbr": 1,
+                "filters": {},
+                "sort": ["name", ASCENDING]  # Example sort value
+            },
+            "exclude_none": True  # Exclude fields with None value from schema
+        }
 
 ### HttpParamsInterpreter #
 def httpParamsInterpreter(params: HttpParams) -> list[int]:
@@ -197,4 +217,5 @@ def httpParamsInterpreter(params: HttpParams) -> list[int]:
     """
     skip = (params.page_nbr - 1) * params.nbr if params.page_nbr else 0
     limit = params.nbr if params.nbr else 0
-    return [skip, limit]
+    sort = {"field":params.sort[0], "way":params.sort[1]} if not params.sort[0] is None and not params.sort[1] is None else None
+    return [skip, limit, sort]

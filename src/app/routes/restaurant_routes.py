@@ -5,7 +5,13 @@ from pydantic import BeforeValidator
 from pymongo.collection import Collection
 
 
-from ..middleware.http_params import OP_FIELD, HttpParams, Filter, httpParamsInterpreter
+from ..middleware.http_params import (
+    OP_FIELD,
+    HttpParams,
+    Filter,
+    Sort,
+    httpParamsInterpreter,
+)
 from ..models.models import Restaurant, check_dict_length
 
 ### RESTAURANT_ROUTER
@@ -13,21 +19,32 @@ rest_router = APIRouter()
 
 
 @rest_router.post(
-    "/",
+    "/one",
     response_description="get first restaurant in the list",
     status_code=status.HTTP_200_OK,
     response_model=Restaurant,
 )
 def read_one_restaurant(
-    request: Request, params: Annotated[HttpParams, Body(embed=True)] = HttpParams()
+    request: Request, params: Annotated[HttpParams, Body(embed=True)]
 ):
     """
-    TEST for getting one restaurant
+    GET ONE RESTAURANT
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
+
+
+    @return:\n
+        Restaurant: the one asked for.\n
     """
     # gain autocompletion by strongly typing collection
     coll: Collection = request.app.db_restaurants
-    skip, limit = httpParamsInterpreter(params)
-    return coll.find_one({})
+    query = Filter(**params.filters).make()
+    result = coll.find_one(query)
+    return result
 
 
 @rest_router.post(
@@ -38,15 +55,7 @@ def read_one_restaurant(
 )
 def read_list_restaurants(
     request: Request,
-    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(
-        nbr=5,
-        page_nbr=1,
-        filters={
-            "value": "Wendy'S",
-            "operator_field": OP_FIELD.CONTAIN,
-            "field": "name",
-        },
-    ),
+    params: Annotated[HttpParams, Body(embed=True)]
 ):
     """
     GET RESTAURANTS LIST
@@ -55,17 +64,63 @@ def read_list_restaurants(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
 
     @return:\n
         list[Restaurant]: the requested list.\n
     """
     coll: Collection = request.app.db_restaurants
-    skip, limit = httpParamsInterpreter(params)
+    skip, limit, sort = httpParamsInterpreter(params)
     query = Filter(**params.filters).make()
-    restaurants_cursor: list[dict] = coll.find(query).skip(skip).limit(limit)
-    result = list(restaurants_cursor)
-    print(f"Mongodb request: {query}")
+    cursor: list[dict] = coll.find(query).sort(sort["field"], sort["way"]).skip(skip).limit(limit)
+    result = list(cursor)
     return result
+
+
+@rest_router.post(
+    "/distinct",
+    response_description="get all distinct <field>",
+    status_code=status.HTTP_200_OK,
+    response_model=list[str],
+)
+def get_distinct_field(
+    request: Request,
+    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(
+        sort=("name", Sort.ASC)
+    ),
+):
+    """
+    GET DISTINCT VALUES OF A FIELD
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): no filters used.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
+
+    @return:\n
+        list[str]: a list of names<str>.\n
+    """
+    coll: Collection = request.app.db_restaurants
+    skip, limit, sort = httpParamsInterpreter(params)
+    #  params.sort tuple must be properly set
+    if params.sort[0] is None or params.sort[0]=="":
+        raise HTTPException(status_code=422, detail=f"Sort field is not properly defined: {sort['field']} \nfrom {params.sort}")
+    if params.sort[1] is None or not isinstance(params.sort[1], Sort):
+        raise HTTPException(status_code=422, detail=f"Sort way is not properly defined: {sort['way']} \nfrom {params.sort}")
+    cursor = coll.aggregate(
+        [
+            {
+                "$group": {"_id": f"${sort['field']}"}
+            },  # group by field to get distinct names
+            {"$sort": {"_id": sort['way']}},  # order alphabetically A > Z
+            {"$skip": skip},
+            {"$limit": limit},
+        ]
+    )
+    result = list(cursor)
+    # return list of values<str>
+    return list(map(lambda x: x["_id"], result))
 
 
 @rest_router.post(
@@ -89,6 +144,7 @@ def create_restaurant(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
 
     @return:\n
         Restaurant: created restaurant.
@@ -125,6 +181,7 @@ def update_restaurant(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
 
     @return:\n
         Restaurant: the updated restaurant.
@@ -145,7 +202,7 @@ def update_restaurant(
     return confirm
 
 
-@rest_router.put("/update/field/name/", response_description="change field name")
+@rest_router.put("/update/field/name", response_description="change field name")
 def update_restaurants_field(
     request: Request,
     field: Annotated[str, Body(embed=True)],
@@ -165,20 +222,27 @@ def update_restaurants_field(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
 
     @return:\n
         {field, new_field, nbr of items processed}.
     """
     coll = request.app.db_restaurants
     skip, limit = httpParamsInterpreter(params)
-    cursor = coll.update_many(
-        {field: {"$exists": True}}, {"$rename": {field: new_field}}
-    ).skip(skip).limit(limit)
-    result = {'field': field, 'new field': new_field, 'nbr of results': cursor.matched_count}
+    cursor = (
+        coll.update_many({field: {"$exists": True}}, {"$rename": {field: new_field}})
+        .skip(skip)
+        .limit(limit)
+    )
+    result = {
+        "field": field,
+        "new field": new_field,
+        "nbr of results": cursor.matched_count,
+    }
     return f"Items processed: result"
 
 
-@rest_router.put("/update/field/set/", response_description="set field value")
+@rest_router.put("/update/field/set", response_description="set field value")
 def update_restaurants_value(
     request: Request,
     field: Annotated[str, Body(embed=True)],
@@ -198,6 +262,7 @@ def update_restaurants_value(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
 
     @return:\n
        {field: number of items processed}[]
@@ -211,12 +276,16 @@ def update_restaurants_value(
                 status_code=422,
                 detail=f"Each value should contain only one item. Error value: {value}",
             )
-        cursor = coll.update_many({field: {"$exists": True}}, {"$set": value}).skip(skip).limit(limit)
+        cursor = (
+            coll.update_many({field: {"$exists": True}}, {"$set": value})
+            .skip(skip)
+            .limit(limit)
+        )
         result[list(value.keys())[0]] = cursor.matched_count
     return f"Items processed: {result}"
 
 
-@rest_router.delete("/update/field/unset/", response_description="delete a field")
+@rest_router.delete("/update/field/unset", response_description="delete a field")
 def delete_restaurant_field(
     request: Request,
     field: Annotated[str, Body(embed=True)],
@@ -232,6 +301,7 @@ def delete_restaurant_field(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
 
     @return:\n
         {<field>: number_of_items_processed}
@@ -262,7 +332,7 @@ def delete_restaurant(
     params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
-    DELETE A RESTAURANT
+    DELETE A RESTAURANT by retaurant_id.
 
     @param id:\n
         str: restaurant_id.\n
@@ -271,6 +341,7 @@ def delete_restaurant(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
 
     @return:\n
         {restaurant_id: str, deleted_nbr: int}

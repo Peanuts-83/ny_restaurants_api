@@ -1,25 +1,19 @@
-import json
-from typing import Annotated, Any
-from IPython import embed
+from typing import Annotated
 from fastapi import APIRouter, Body, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
 from pymongo import GEOSPHERE
 from pymongo.collection import Collection
 
-from fastapi.routing import APIRoute
-
-from ..models.utils import IdMapper
-
 from ..models.models import Distance, Geometry, Neighborhood, Point, Restaurant
 
-from ..middleware.http_params import Filter, HttpParams, httpParamsInterpreter
+from ..middleware.http_params import HttpParams, httpParamsInterpreter
 
 
 point_router = APIRouter(prefix="/point")
 
 
 @point_router.post(
-    "/from_neighborhood/",
+    "/from_neighborhood",
     response_description="check for matching neighborhood.",
     status_code=status.HTTP_200_OK,
     response_model=Neighborhood,
@@ -35,6 +29,12 @@ def get_neighborhood(
     @param coord:\n
         longitude <float[-180:180]>\n
         latitude <float[-90:90]>\n
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
     """
     # search on neighborhood collection
     coll: Collection = request.app.db_neighborhoods
@@ -53,8 +53,8 @@ def get_neighborhood(
     try:
         result = dict(result)
         # result = {**result, "id": IdMapper().toStr(result["_id"])}
-        del result['_id']
-        return result #
+        del result["_id"]
+        return result  #
     except:
         raise HTTPException(
             status_code=404, detail=f"No neighborhood match for coordinates {coord}."
@@ -62,7 +62,7 @@ def get_neighborhood(
 
 
 @point_router.post(
-    "/to_restaurant/",
+    "/to_restaurant",
     response_description="get nearest restaurants.",
     response_model=list[Restaurant],
 )
@@ -76,15 +76,23 @@ def get_restaurants(
 ):
     """
     Get the nearest restaurants from point coord, with distance min/max params.\n
+
     @param coord:\n
         longitude <float[-180:180]>\n
         latitude <float[-90:90]>\n
+
     @param dist:\n
         min <int> : distance in meters (default=0)\n
         max <int> : distance in meters (default=500)\n
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
     """
     coll: Collection = request.app.db_restaurants
-    skip, limit = httpParamsInterpreter(params)
+    skip, limit, sort = httpParamsInterpreter(params)
     cursor = (
         coll.find(
             {
@@ -99,7 +107,10 @@ def get_restaurants(
                     }
                 }
             }
-        ).skip(skip).limit(limit)
+        )
+        .sort(sort["field"], sort["way"])
+        .skip(skip)
+        .limit(limit)
     )
     return list(cursor)
 
@@ -119,9 +130,9 @@ def get_restaurants_within(
                 [-73.9714531126955, 40.76362696209412],
                 [-73.97018928615685, 40.76541377575056],
                 [-73.97516033720885, 40.76736007167634],
-                [-73.97608714333718, 40.76576475135964]
+                [-73.97608714333718, 40.76576475135964],
             ]
-        ]
+        ],
     },
     params: Annotated[HttpParams, Body(embed=True)] = HttpParams(
         page_nbr=1, nbr=20, filters={}
@@ -129,12 +140,26 @@ def get_restaurants_within(
 ):
     """
     Get all the restaurants inside a shape of coordinates.\n
+
     @param shape:\n
         type: str\n
         coordinates: list[list[list[longitude <float[-180:180]>, latitude <float[-90:90]>]]]\n
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+        sort(tuple[field<str>,Sort]): ascending order by default.\n
     """
     coll: Collection = request.app.db_restaurants
-    skip, limit = httpParamsInterpreter(params)
-    cursor = coll.find({"address.coord": {"$geoWithin": {"$geometry": jsonable_encoder(shape)}}}).skip(skip).limit(limit)
+    skip, limit, sort = httpParamsInterpreter(params)
+    cursor = (
+        coll.find(
+            {"address.coord": {"$geoWithin": {"$geometry": jsonable_encoder(shape)}}}
+        )
+        .sort(sort["field"], sort["way"])
+        .skip(skip)
+        .limit(limit)
+    )
     result = list(cursor)
     return result
