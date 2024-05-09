@@ -4,9 +4,16 @@ from fastapi.encoders import jsonable_encoder
 from pymongo import GEOSPHERE
 from pymongo.collection import Collection
 
+from ..middleware.cursor_middleware import cursor_to_object
+
 from ..models.models import Distance, Geometry, Neighborhood, Point, Restaurant
 
-from ..middleware.http_params import HttpParams, httpParamsInterpreter
+from ..middleware.http_params import (
+    Filter,
+    HttpParams,
+    SortParams,
+    httpParamsInterpreter,
+)
 
 
 point_router = APIRouter(prefix="/point")
@@ -21,7 +28,7 @@ point_router = APIRouter(prefix="/point")
 def get_neighborhood(
     request: Request,
     coord: Annotated[Point, Body(embed=True)],
-    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(),
+    params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
     Get the corresponding neighborhood for a point coordinates [long, lat]
@@ -34,9 +41,8 @@ def get_neighborhood(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
     """
-    # search on neighborhood collection
     coll: Collection = request.app.db_neighborhoods
     result = coll.find_one(
         {
@@ -52,9 +58,7 @@ def get_neighborhood(
     )
     try:
         result = dict(result)
-        # result = {**result, "id": IdMapper().toStr(result["_id"])}
-        del result["_id"]
-        return result  #
+        return cursor_to_object(result)
     except:
         raise HTTPException(
             status_code=404, detail=f"No neighborhood match for coordinates {coord}."
@@ -89,30 +93,40 @@ def get_restaurants(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
     """
     coll: Collection = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
-    cursor = (
-        coll.find(
-            {
-                "address.coord": {
-                    "$near": {
-                        "$geometry": {
-                            "type": "Point",
-                            "coordinates": [coord.longitude, coord.latitude],
-                        },
-                        "$minDistance": dist.min,
-                        "$maxDistance": dist.max,
-                    }
-                }
+    if params.filters and len(params.filters) > 0:
+        query = Filter(**params.filters).make() if params.filters else {}
+    l_aggreg = [
+        {
+            "$geoNear": {
+                "near": {
+                    "type": "Point",
+                    "coordinates": [coord.longitude, coord.latitude],
+                },
+                "minDistance": dist.min,
+                "maxDistance": dist.max,
+                "includeLocs": "address.coord",
+                "distanceField": "dist.calculated",
+                "spherical": True,
             }
-        )
-        .sort(sort["field"], sort["way"])
-        .skip(skip)
-        .limit(limit)
-    )
-    return list(cursor)
+        }
+    ]
+    # "longitude": -73.97474662218372,
+    # "latitude": 40.76410978551795
+
+    try:
+        l_aggreg[0]["$geoNear"]["query"] = query["$match"]
+    except:
+        pass
+    sort and l_aggreg.append({"$sort": sort})
+    skip and l_aggreg.append({"$skip": skip})
+    limit and l_aggreg.append({"$limit": limit})
+    cursor = coll.aggregate(l_aggreg)
+    result = list(cursor)
+    return cursor_to_object(result)
 
 
 @point_router.post(
@@ -149,17 +163,32 @@ def get_restaurants_within(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
     """
     coll: Collection = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
-    cursor = (
-        coll.find(
-            {"address.coord": {"$geoWithin": {"$geometry": jsonable_encoder(shape)}}}
-        )
-        .sort(sort["field"], sort["way"])
-        .skip(skip)
-        .limit(limit)
-    )
+    if params.filters and len(params.filters) > 0:
+        query = Filter(**params.filters).make() if params.filters else {}
+    l_aggreg = [
+        {
+            "$match": {
+                "address.coord": {
+                    "$geoWithin": {
+                        "$geometry": {"type": "Polygon", "coordinates": jsonable_encoder(shape.coordinates)}
+                    }
+                }
+            }
+        }
+    ]
+    try:
+        l_key = list(query["$match"].keys())[0]
+        l_value = list(query["$match"].values())[0]
+        l_aggreg[0]["$match"][l_key] = l_value
+    except:
+        pass
+    sort and l_aggreg.append({"$sort": sort})
+    skip and l_aggreg.append({"$skip": skip})
+    limit and l_aggreg.append({"$limit": limit})
+    cursor = coll.aggregate(l_aggreg)
     result = list(cursor)
-    return result
+    return cursor_to_object(result)

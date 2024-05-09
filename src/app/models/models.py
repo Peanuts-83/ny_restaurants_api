@@ -34,7 +34,7 @@ class Restaurant(BaseModel):
 ### Neighnorhood models #
 class Geometry(BaseModel):
     # use "constrained list" with conlist - not properly interpreted by pylance
-    coordinates: conlist(conlist(conlist(float, min_length=2, max_length=2), min_length=1), min_length=1)  # type: ignore
+    coordinates: Any  # type: ignore
     type: str
 
 class Neighborhood(BaseModel):

@@ -2,7 +2,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, HTTPException, status, Request
 from pymongo.collection import Collection
 
-from ..middleware.http_params import OP_FIELD, Filter, HttpParams, httpParamsInterpreter
+from ..middleware.http_params import OP_FIELD, Filter, HttpParams, SortParams, httpParamsInterpreter
 from ..models.utils import IdMapper
 from ..models.models import Neighborhood
 
@@ -12,12 +12,12 @@ neighb_router = APIRouter(prefix="/neighborhood")
 
 @neighb_router.post(
     "/one",
-    response_description="get first neighborhood in the list",
+    response_description="get one neighborhood in the list",
     status_code=status.HTTP_200_OK,
     response_model=Neighborhood,
 )
 def read_one_neighborhood(
-    request: Request, params: Annotated[HttpParams, Body(embed=True)] = HttpParams()
+    request: Request, params: Annotated[HttpParams, Body(embed=True)]
 ):
     """
     TEST for getting one neighborhood
@@ -26,13 +26,24 @@ def read_one_neighborhood(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
     """
     # gain autocompletion by strongly typing collection
     coll: Collection = request.app.db_neighborhoods
-    query = Filter(**params.filters).make()
-    result = coll.find_one(query)
-    return result
+    skip, limit, sort = httpParamsInterpreter(params)
+    if params.filters and params.filters!={}:
+        query = Filter(**params.filters).make()
+    l_aggreg = []
+    try:
+        l_aggreg.insert(0, query)
+    except:
+        pass
+    sort and l_aggreg.append({"$sort": sort})
+    skip and l_aggreg.append({"$skip": skip})
+    l_aggreg.append({"$limit": 1})
+    cursor = coll.aggregate(l_aggreg)
+    # Aggregation pipes return list
+    return list(cursor)[0]
 
 
 @neighb_router.post(
@@ -43,15 +54,7 @@ def read_one_neighborhood(
 )
 def read_list_neighborhoods(
     request: Request,
-    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(
-        nbr=5,
-        page_nbr=1,
-        filters={
-            "value": "Bedford",
-            "operator_field": OP_FIELD.CONTAIN,
-            "field": "name",
-        },
-    ),
+    params: Annotated[HttpParams, Body(embed=True)]
 ):
     """
     GET NEIGHBORHOODS LIST
@@ -60,35 +63,38 @@ def read_list_neighborhoods(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
-        list[Neighborhood]: the requested list with idObject as str.
+        list[Neighborhood]: the requested list.
     """
     coll: Collection = request.app.db_neighborhoods
-    projection = {"_id": 1, "geometry": 1, "name": 1}  # display _id Object
     skip, limit, sort = httpParamsInterpreter(params)
-    query = Filter(**params.filters).make()
-    neighborhoods_cursor: list[dict] = (
-        coll.find(query, projection)
-        .sort(sort["field"], sort["way"])
-        .skip(skip)
-        .limit(limit)
-    )
-    # id = idObject to str
-    result = [
-        {**neighb, "id": IdMapper().toStr(neighb["_id"])}
-        for neighb in neighborhoods_cursor
-    ]
-    return result
+    if params.filters and params.filters!={}:
+        query = Filter(**params.filters).make()
+    l_aggreg = []
+    try:
+        l_aggreg.append(query)
+    except:
+        pass
+    sort and l_aggreg.append({"$sort": sort})
+    skip and l_aggreg.append({"$skip": skip})
+    limit and l_aggreg.append({"$limit": limit})
+    cursor = coll.aggregate(l_aggreg)
+    return cursor
 
 
 @neighb_router.post(
     "/distinct",
     response_description="get all distinct neighborhoods",
+    status_code=status.HTTP_200_OK,
+    response_model=list[str],
 )
 def get_distinct_neighborhood(
-    request: Request, params: Annotated[HttpParams, Body(embed=True)]
+    request: Request,
+    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(
+        sort=SortParams(field="name",way=1)
+    )
 ):
     """
     GET DISTINCT NEIGHBORHOOD NAMES
@@ -97,25 +103,36 @@ def get_distinct_neighborhood(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
         list[str]: list of names.
     """
     coll: Collection = request.app.db_neighborhoods
     skip, limit, sort = httpParamsInterpreter(params)
-    # distinct() can't use skip & limit > aggregate used
-    cursor = coll.aggregate(
-        [
-            {"$group": {"_id": f"${sort['field']}"}},  # group by name to get distinct names
-            {"$sort": {"_id": sort['way']}},  # order alphabetically A > Z
-            {"$skip": skip},
-            {"$limit": limit},
-        ]
-    )
-    result = list(cursor)
-    # return list of values<str>
-    return list(map(lambda x: x["_id"], result))
+    distinctField = list(sort.keys())[0]
+    distinctWay = sort[distinctField]
+    if distinctField is None or distinctField == "":
+        raise HTTPException(
+            status_code=422,
+            detail=f"Sort field is not properly defined: {distinctField} from {sort}",
+        )
+    if distinctWay is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Sort way is not properly defined: {distinctWay} from {sort}",
+        )
+    l_aggreg = [
+        {"$match": {distinctField: {"$ne": ""}}},  # no empty field allowed
+        {
+            "$group": {"_id": f"${distinctField}"} # group by field to get distinct names
+        }
+    ]
+    sort and l_aggreg.append({"$sort": sort})
+    skip and l_aggreg.append({"$skip": skip})
+    limit and l_aggreg.append({"$limit": limit})
+    cursor = coll.aggregate(l_aggreg)
+    return list(map(lambda x: x["_id"], cursor))
 
 
 @neighb_router.put(
@@ -128,7 +145,7 @@ def update_neighborhood(
     request: Request,
     name: Annotated[str, Body(embed=True)],
     changes: Annotated[dict, Body(embed=True)],
-    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(nbr=1, page_nbr=1),
+    params: Annotated[HttpParams, Body(embed=True)]
 ):
     """
     UPDATE A NEIGHBORHOOD
@@ -143,7 +160,7 @@ def update_neighborhood(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
         the updated neighborhood.

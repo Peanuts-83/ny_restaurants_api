@@ -1,18 +1,20 @@
+import json
 from typing import Annotated, Any, Dict, List
 from fastapi import APIRouter, Body, HTTPException, status, Request
 from fastapi.encoders import jsonable_encoder
-from pydantic import BeforeValidator
 from pymongo.collection import Collection
+
+from ..middleware.cursor_middleware import cursor_to_object
 
 
 from ..middleware.http_params import (
     OP_FIELD,
     HttpParams,
     Filter,
-    Sort,
+    SortWay,
     httpParamsInterpreter,
 )
-from ..models.models import Restaurant, check_dict_length
+from ..models.models import Restaurant
 
 ### RESTAURANT_ROUTER
 rest_router = APIRouter()
@@ -34,7 +36,7 @@ def read_one_restaurant(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
 
     @return:\n
@@ -42,10 +44,20 @@ def read_one_restaurant(
     """
     # gain autocompletion by strongly typing collection
     coll: Collection = request.app.db_restaurants
-    query = Filter(**params.filters).make()
-    result = coll.find_one(query)
-    return result
-
+    skip, limit, sort = httpParamsInterpreter(params)
+    if params.filters and params.filters!={}:
+        query = Filter(**params.filters).make()
+    l_aggreg = []
+    try:
+        l_aggreg.insert(0, query)
+    except:
+        pass
+    sort and l_aggreg.append({"$sort": sort})
+    skip and l_aggreg.append({"$skip": skip})
+    l_aggreg.append({"$limit": 1})
+    cursor = coll.aggregate(l_aggreg)
+    # Aggregation pipes return list
+    return list(cursor)[0]
 
 @rest_router.post(
     "/list",
@@ -64,17 +76,25 @@ def read_list_restaurants(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
         list[Restaurant]: the requested list.\n
     """
     coll: Collection = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
-    query = Filter(**params.filters).make()
-    cursor: list[dict] = coll.find(query).sort(sort["field"], sort["way"]).skip(skip).limit(limit)
-    result = list(cursor)
-    return result
+    if params.filters and params.filters!={}:
+        query = Filter(**params.filters).make()
+    l_aggreg = []
+    try:
+        l_aggreg.append(query)
+    except:
+        pass
+    sort and l_aggreg.append({"$sort": sort})
+    skip and l_aggreg.append({"$skip": skip})
+    limit and l_aggreg.append({"$limit": limit})
+    cursor = coll.aggregate(l_aggreg)
+    return cursor
 
 
 @rest_router.post(
@@ -85,42 +105,45 @@ def read_list_restaurants(
 )
 def get_distinct_field(
     request: Request,
-    params: Annotated[HttpParams, Body(embed=True)] = HttpParams(
-        sort=("name", Sort.ASC)
-    ),
+    params: Annotated[HttpParams, Body(embed=True)]
 ):
     """
-    GET DISTINCT VALUES OF A FIELD
+    GET DISTINCT VALUES OF A FIELD from Restaurants collection.
 
     @param params:\n
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): no filters used.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(tuple[field,way]): use field for distinct values - ascending order by default.\n
 
     @return:\n
         list[str]: a list of names<str>.\n
     """
     coll: Collection = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
-    #  params.sort tuple must be properly set
-    if params.sort[0] is None or params.sort[0]=="":
-        raise HTTPException(status_code=422, detail=f"Sort field is not properly defined: {sort['field']} \nfrom {params.sort}")
-    if params.sort[1] is None or not isinstance(params.sort[1], Sort):
-        raise HTTPException(status_code=422, detail=f"Sort way is not properly defined: {sort['way']} \nfrom {params.sort}")
-    cursor = coll.aggregate(
-        [
-            {
-                "$group": {"_id": f"${sort['field']}"}
-            },  # group by field to get distinct names
-            {"$sort": {"_id": sort['way']}},  # order alphabetically A > Z
-            {"$skip": skip},
-            {"$limit": limit},
-        ]
-    )
-    result = list(cursor)
-    # return list of values<str>
-    return list(map(lambda x: x["_id"], result))
+    distinctField = list(sort.keys())[0]
+    distinctWay = sort[distinctField]
+    if distinctField is None or distinctField == "":
+        raise HTTPException(
+            status_code=422,
+            detail=f"Sort field is not properly defined: {distinctField} from {sort}",
+        )
+    if distinctWay is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Sort way is not properly defined: {distinctWay} from {sort}",
+        )
+    l_aggreg = [
+        {"$match": {distinctField: {"$ne": ""}}},  # no empty field allowed
+        {
+            "$group": {"_id": f"${distinctField}"} # group by field to get distinct names
+        }
+    ]
+    sort and l_aggreg.append({"$sort": sort})
+    skip and l_aggreg.append({"$skip": skip})
+    limit and l_aggreg.append({"$limit": limit})
+    cursor = coll.aggregate(l_aggreg)
+    return list(map(lambda x: x["_id"], cursor))
 
 
 @rest_router.post(
@@ -144,7 +167,7 @@ def create_restaurant(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
         Restaurant: created restaurant.
@@ -181,14 +204,14 @@ def update_restaurant(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
         Restaurant: the updated restaurant.
     """
     coll: Collection = request.app.db_restaurants
     result = coll.update_one({"restaurant_id": id}, {"$set": changes})
-    if result.matched_count < 1:
+    if result.matched_count == 0:
         raise HTTPException(
             status_code=404, detail=f"No match with restaurant_id {id}."
         )
@@ -222,67 +245,76 @@ def update_restaurants_field(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
         {field, new_field, nbr of items processed}.
     """
     coll = request.app.db_restaurants
-    skip, limit = httpParamsInterpreter(params)
-    cursor = (
-        coll.update_many({field: {"$exists": True}}, {"$rename": {field: new_field}})
-        .skip(skip)
-        .limit(limit)
-    )
-    result = {
-        "field": field,
-        "new field": new_field,
-        "nbr of results": cursor.matched_count,
-    }
-    return f"Items processed: result"
+    skip, limit, sort = httpParamsInterpreter(params)
+    # update_many(filter<{'name':'Wendys'}>, update<{field:{'$exists':True}},{"$rename": {field: new_field}})
+    if params.filters and len(params.filters) > 0:
+        query = Filter(**params.filters).make() if params.filters else {}
+    l_aggreg = [{field: {"$exists": True}}, {"$rename": {field: new_field}}]
+    query and l_aggreg.insert(0, query["$match"])
+    skip and l_aggreg.append(skip)
+    limit and l_aggreg.append(limit)
+    cursor = coll.update_many(*l_aggreg)
+    if cursor.modified_count > 0:
+        return {
+            "new_field": new_field,
+            "matched": cursor.matched_count,
+            "modified": cursor.modified_count,
+        }
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No field modified for new field {new_field} and filters {params.filters}.",
+        )
 
 
 @rest_router.put("/update/field/set", response_description="set field value")
 def update_restaurants_value(
     request: Request,
-    field: Annotated[str, Body(embed=True)],
-    values: Annotated[List[Dict[str, Any]], Body(embed=True)],
+    new_item: Annotated[Dict[str, Any], Body(embed=True)],
     params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
     FOR DATABASE MANAGMENT ONLY! Set a field value and create the field if needed.
 
-    @param field:\n
-        str: field to be changed.\n
-
-    @param values:\n
-        {key<str>: value<any>}[] : only one item supported for each value.\n
+    @param new_item:\n
+        {field_name<str>: value<any>} : field name and it's value.\n
 
     @param params:\n
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
        {field: number of items processed}[]
     """
-    coll = request.app.db_restaurants
-    skip, limit = httpParamsInterpreter(params)
-    result = {}
-    for value in values:
-        if len(value) > 1:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Each value should contain only one item. Error value: {value}",
-            )
-        cursor = (
-            coll.update_many({field: {"$exists": True}}, {"$set": value})
-            .skip(skip)
-            .limit(limit)
+    coll: Collection = request.app.db_restaurants
+    skip, limit, sort = httpParamsInterpreter(params)
+    # update_many(filter<{'name':'Wendys'}>, update<{$set:{'cuisine':'BUDU'}}, upsert<Bool: insert if not present>>)
+    if params.filters and len(params.filters) > 0:
+        query = Filter(**params.filters).make() if params.filters else {}
+    l_aggreg = [{"$set": new_item}]
+    query and l_aggreg.insert(0, query["$match"])
+    skip and l_aggreg.append(skip)
+    limit and l_aggreg.append(limit)
+    cursor = coll.update_many(*l_aggreg, upsert=True)
+    if cursor.modified_count > 0:
+        return {
+            "new_value": new_item,
+            "matched": cursor.matched_count,
+            "modified": cursor.modified_count,
+        }
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No item modified for new item {new_item} and filters {params.filters}.",
         )
-        result[list(value.keys())[0]] = cursor.matched_count
-    return f"Items processed: {result}"
 
 
 @rest_router.delete("/update/field/unset", response_description="delete a field")
@@ -301,19 +333,27 @@ def delete_restaurant_field(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
         {<field>: number_of_items_processed}
     """
     coll = request.app.db_restaurants
-    skip, limit = httpParamsInterpreter(params)
-    query = {}
+    skip, limit, sort = httpParamsInterpreter(params)
     if params.filters and len(params.filters) > 0:
-        query = Filter(**params.filters).make()
-    result = coll.update_many(query, {"$unset": {field: ""}}).skip(skip).limit(limit)
-    if result.modified_count > 0:
-        return {field: result.modified_count}
+        query = Filter(**params.filters).make() if params.filters else {}
+    l_aggreg = [{"$unset": {field: ""}}]
+    query and l_aggreg.insert(0, query["$match"])
+    skip and l_aggreg.append(skip)
+    limit and l_aggreg.append(limit)
+    # update_many(filter<{'name':'Wendys'}>, update<{$unset:{'cuisine':''}})
+    cursor = coll.update_many(*l_aggreg)
+    if cursor.modified_count > 0:
+        return {
+            "field": field,
+            "matched": cursor.matched_count,
+            "modified": cursor.modified_count,
+        }
     else:
         raise HTTPException(
             status_code=404,
@@ -341,7 +381,7 @@ def delete_restaurant(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(tuple[field<str>,Sort]): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
 
     @return:\n
         {restaurant_id: str, deleted_nbr: int}

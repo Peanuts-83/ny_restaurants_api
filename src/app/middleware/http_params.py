@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from pymongo import ASCENDING, DESCENDING
@@ -72,37 +72,37 @@ class Filter():
             return l_request
         if not self.filter_elements:
             # SingleFilter
-            l_request = self.doBuildSingle()
+            l_request = {"$match": {}}
+            l_request["$match"] = self.doBuildSingle()
         else:
             # CombinedFilter
             elements = [ self.doBuildSingle(**single_filter) for single_filter in self.filter_elements ]
             l_request = self.doBuildCombined(elements)
         return l_request
 
+    #  Requete en aggregation pipeline
     def doBuildSingle(self) -> dict:
-        l_request = {}
         # {<field>: {$eq: <value>}}
         if self.operator_field == OP_FIELD.EQ.value:
-            l_request[self.field] = self.value
+            return {self.field: self.value}
         # {<field>: {$ne: <value>}}
         elif self.operator_field == OP_FIELD.NE.value:
-            l_request[self.field] = {self.operator_field: self.value}
-        # {<field>: {$not: <value{}>}}
-        elif self.operator_field == OP_FIELD.NOT.value: # value ex. {"$gt":5}
+            return {self.field: {self.operator_field: self.value}}
+        # {<field>: {$not: <value{}>}} # value ex. {"$gt":5}
+        elif self.operator_field == OP_FIELD.NOT.value:
             self.checkForDict(self.value).value # Dict required
-            l_request[self.field] = {self.operator_field: self.value}
+            return {self.field: {self.operator_field: self.value}}
         # {<field>: {$regex: <value>}}
         elif self.operator_field == OP_FIELD.CONTAIN.value:
-            l_request[self.field] = {self.operator_field: f".*{self.value}.*", "$options": "i"}
+            return {self.field: {self.operator_field: f".*{self.value}.*", "$options": "i"}}
         # {<field>: {$in: <value[]>}}
         elif self.operator_field == OP_FIELD.IN.value or self.operator_field == OP_FIELD.NOT_IN.value:
             self.checkForList(self.value) # List required
-            l_request[self.field] = {self.operator_field: self.value}
+            return {self.field: {self.operator_field: self.value}}
         # {<field>: {$lt|$lte|$gt|$gte: <value>}}
         elif self.operator_field in [OP_FIELD.GT.value, OP_FIELD.GTE.value, OP_FIELD.LT.value, OP_FIELD.LTE.value]:
             #  can operate on numbers and strings
-            l_request[self.field] = {self.operator_field: self.value}
-        return l_request
+            return {self.field: {self.operator_field: self.value}}
 
     def doBuildCombined(self, elements) -> dict:
         """
@@ -110,7 +110,7 @@ class Filter():
         ex: {$nor: [{"grades.grade": {$gt: "A"}}]} > only grade $lte "A"
         ex: {"grades.grade": {$gt: "A"}} > some grade "A"
         """
-        l_request = {}
+        l_request = {"$match": {}}
         # {$and|$or|$nor: <SingleFilter[]>}
         if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value]:
             l_request[self.operator] = elements
@@ -174,13 +174,16 @@ class CombinedFilter(Filter):
             else:
                 return False
 
-
-class Sort(int,Enum):
+class SortWay(int,Enum):
     """
     Sort by order <ASC|DESC>.
     """
     ASC = 1
     DESC = -1
+
+class SortParams(BaseModel):
+    field: str
+    way: int
 
 # Error object returned in response.body #
 class ValueError():
@@ -197,7 +200,7 @@ class HttpParams(BaseModel):
     nbr: int = Field(default=None, ge=0)
     page_nbr: int = Field(default=None, ge=1)
     filters: dict = Field(default=None)
-    sort: Optional[tuple[str,Sort]] = Field(default=None)
+    sort: SortParams = Field(default=None)
 
     class Config:
         json_schema_extra = {
@@ -205,17 +208,17 @@ class HttpParams(BaseModel):
                 "nbr": 0,
                 "page_nbr": 1,
                 "filters": {},
-                "sort": ["name", ASCENDING]  # Example sort value
+                "sort": {"field":"name", "way":ASCENDING}  # Example sort value
             },
             "exclude_none": True  # Exclude fields with None value from schema
         }
 
 ### HttpParamsInterpreter #
-def httpParamsInterpreter(params: HttpParams) -> list[int]:
+def httpParamsInterpreter(params: HttpParams) -> list[int,int,Tuple[str,int]]:
     """
     Return skip and limit values.
     """
-    skip = (params.page_nbr - 1) * params.nbr if params.page_nbr else 0
-    limit = params.nbr if params.nbr else 0
-    sort = {"field":params.sort[0], "way":params.sort[1]} if not params.sort[0] is None and not params.sort[1] is None else None
+    skip = (params.page_nbr - 1) * params.nbr if params.page_nbr and params.nbr and (params.page_nbr - 1) * params.nbr > 0 else None
+    limit = params.nbr if params.nbr and params.nbr > 0 else None
+    sort = {params.sort.field: ASCENDING if params.sort.way==1 else DESCENDING} if params.sort and params.sort.field and params.sort.way else None
     return [skip, limit, sort]
