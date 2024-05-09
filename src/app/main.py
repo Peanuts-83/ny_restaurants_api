@@ -17,6 +17,14 @@ mongo_uri = os.getenv('MONGO_URI')
 
 app = FastAPI()
 
+# Define allowed origins, methods, and headers
+origins = [
+    "http://localhost",
+    "http://localhost:80",
+    "http://localhost:8080",
+    "http://localhost:4200",
+]
+
 ### Main Router #
 app.include_router(demo_router)
 app.include_router(router)
@@ -27,12 +35,12 @@ Can be used :
     * with @app.middleware('http') decorator on custom_middleware function.
     * with app.add(<class_custom_middleware(BaseHttpMiddleware)>, **options) by implementing dispatch method.
 """
-# CORS Middleware to handle CORS requests
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -62,9 +70,11 @@ def startup_db_client():
     app.database = app.mongodb_client['sample_restaurants']
     app.db_restaurants = app.database['restaurants']
     init_2dsphere_index(coll=app.db_restaurants, name="restaurants", field="address.coord")
+    logging.info(msg='2dSphere index processed for restaurants collection.')
     app.db_neighborhoods = app.database['neighborhoods']
     init_2dsphere_index(coll=app.db_neighborhoods, name="neighborhoods", field="geometry")
-    logging.info('Successfully connected to mongodb_Atlas!')
+    logging.info(msg='2dSphere index processed for neighborhoods collection.')
+    logging.info(msg='Successfully connected to mongodb_Atlas!')
 
 @app.on_event('shutdown')
 def shutdown_db_client():
