@@ -178,18 +178,18 @@ def update_neighborhood_value(
     query and l_aggreg.insert(0, query["$match"])
     skip and l_aggreg.append(skip)
     limit and l_aggreg.append(limit)
-    # cursor = coll.update_many(*l_aggreg, upsert=True)
-    # if cursor.modified_count > 0:
-    #     return {
-    #         "new_value": new_item,
-    #         "matched": cursor.matched_count,
-    #         "modified": cursor.modified_count,
-    #     }
-    # else:
-    #     raise HTTPException(
-    #         status_code=404,
-    #         detail=f"No item modified for new item {new_item} and filters {params.filters}.",
-    #     )
+    cursor = coll.update_many(*l_aggreg, upsert=True)
+    if cursor.modified_count > 0:
+        return {
+            "new_value": new_item,
+            "matched": cursor.matched_count,
+            "modified": cursor.modified_count,
+        }
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No item modified for new item {new_item} and filters {params.filters}.",
+        )
 
 
 
