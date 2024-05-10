@@ -10,11 +10,17 @@
 
 The purpose of this app is to provide quick and simple api to support any front-end project related to.
 
+You can query to collections: restaurants and neighborhoods. Routes have been defined to query for one item, a list of items, distinct values on a field, create, update and delete items or fields.
+
+*A little demo api is also defined, not linked to any database, but connected to local variable for quick testing purpose.*
+
 ## Fastapi
 
-Over the fast, intuitive and easy to Doc OpenApi info proviopenapiinitiative, fastapi is totally standard-based giving access to wonderfull [OpenAPI (Swagger)](https://github.com/OAI/OpenAPI-Specification) and [JSON Schema](https://json-schema.org/).
+Over the fast, intuitive and easy way to build your API, fastapi is totally standard-based giving access to wonderfull [OpenAPI (Swagger)](https://github.com/OAI/OpenAPI-Specification) and [JSON Schema](https://json-schema.org/).
 
-By the way, a friend of mine told me Python was one of the worst code language for heat climate change, because it's not a compiled but interpreted language, low to run and large on space disk use ;) Up your choice to use it or not.
+By the way, a friend of mine told me Python was one of the worst code language for heat climate change, because it's not a compiled but interpreted language, low to run and large on space disk use |:( (his name's Grumpy!)
+
+Up your choice to use it or not.
 
 ### Setup project
 
@@ -24,6 +30,14 @@ Use any package manager (pip, conda, ...) [to install fastapi, uvicorn](https://
 pip install "fastapi[all]"
 pip install -r requirements.txt
 ```
+
+### First launch - set centroid field
+
+Atlas mongoDB provides a **Sample Dataset**, which **sample_restaurants** used in this project comes from.
+
+You will find in **main.py** file a commented line with *console_setup()* method . Uncomment and activate **centroid** option in order to update your *neighborhoods collection*. This way each of your neighborhood item will gain **geometry.centroid** field, the center coordinates of borough's polygon.
+
+You can then comment *console_setup()* line back.
 
 ### Run project
 
@@ -38,7 +52,7 @@ uvicorn main:app --reload
 Once served:
 
 * the app shall be available at: <http://localhost:8000/>
-* OpenApi documentation is served at: <http://localhost:8000/docs>
+* **OpenApi documentation** is served at: <http://localhost:8000/docs>
 * Redoc documentation is served at: <http://localhost:8000/redoc>
 
 ### Debug project
@@ -148,6 +162,11 @@ docker-compose up
 docker ps -a
 
 # stop containers
+CTL+C # in logs window or
+docker-compose stop
+# run back containers with logs --follow
+docker-compose start -f
+# stop and remove containers
 docker-compose down
 # run back containers with an updated configuration
 docker-compose up -d
