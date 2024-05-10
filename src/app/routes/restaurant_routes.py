@@ -139,7 +139,7 @@ def get_distinct_field(
             "$group": {"_id": f"${distinctField}"} # group by field to get distinct names
         }
     ]
-    sort and l_aggreg.append({"$sort": sort})
+    sort and l_aggreg.append({"$sort": {"_id": list(sort.values())[0]}}) # _id is the right target after $group stage
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
     cursor = coll.aggregate(l_aggreg)
@@ -254,7 +254,7 @@ def update_restaurants_field(
     skip, limit, sort = httpParamsInterpreter(params)
     # update_many(filter<{'name':'Wendys'}>, update<{field:{'$exists':True}},{"$rename": {field: new_field}})
     if params.filters and len(params.filters) > 0:
-        query = Filter(**params.filters).make() if params.filters else {}
+        query = Filter(**params.filters).make()
     l_aggreg = [{field: {"$exists": True}}, {"$rename": {field: new_field}}]
     query and l_aggreg.insert(0, query["$match"])
     skip and l_aggreg.append(skip)
@@ -276,7 +276,7 @@ def update_restaurants_field(
 @rest_router.put("/update/field/set", response_description="set field value")
 def update_restaurants_value(
     request: Request,
-    new_item: Annotated[Dict[str, Any], Body(embed=True)],
+    new_item: Annotated[dict[str, Any], Body(embed=True)],
     params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
@@ -298,7 +298,7 @@ def update_restaurants_value(
     skip, limit, sort = httpParamsInterpreter(params)
     # update_many(filter<{'name':'Wendys'}>, update<{$set:{'cuisine':'BUDU'}}, upsert<Bool: insert if not present>>)
     if params.filters and len(params.filters) > 0:
-        query = Filter(**params.filters).make() if params.filters else {}
+        query = Filter(**params.filters).make()
     l_aggreg = [{"$set": new_item}]
     query and l_aggreg.insert(0, query["$match"])
     skip and l_aggreg.append(skip)
@@ -341,7 +341,7 @@ def delete_restaurant_field(
     coll = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
     if params.filters and len(params.filters) > 0:
-        query = Filter(**params.filters).make() if params.filters else {}
+        query = Filter(**params.filters).make()
     l_aggreg = [{"$unset": {field: ""}}]
     query and l_aggreg.insert(0, query["$match"])
     skip and l_aggreg.append(skip)

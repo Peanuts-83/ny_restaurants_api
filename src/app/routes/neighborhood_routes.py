@@ -1,8 +1,16 @@
-from typing import Annotated
+from typing import Annotated, Any
 from fastapi import APIRouter, Body, HTTPException, status, Request
 from pymongo.collection import Collection
 
-from ..middleware.http_params import OP_FIELD, Filter, HttpParams, SortParams, httpParamsInterpreter
+from ..middleware.cursor_middleware import cursor_to_object
+
+from ..middleware.http_params import (
+    OP_FIELD,
+    Filter,
+    HttpParams,
+    SortParams,
+    httpParamsInterpreter,
+)
 from ..models.utils import IdMapper
 from ..models.models import Neighborhood
 
@@ -31,7 +39,7 @@ def read_one_neighborhood(
     # gain autocompletion by strongly typing collection
     coll: Collection = request.app.db_neighborhoods
     skip, limit, sort = httpParamsInterpreter(params)
-    if params.filters and params.filters!={}:
+    if params.filters and params.filters != {}:
         query = Filter(**params.filters).make()
     l_aggreg = []
     try:
@@ -53,8 +61,7 @@ def read_one_neighborhood(
     response_model=list[Neighborhood],
 )
 def read_list_neighborhoods(
-    request: Request,
-    params: Annotated[HttpParams, Body(embed=True)]
+    request: Request, params: Annotated[HttpParams, Body(embed=True)]
 ):
     """
     GET NEIGHBORHOODS LIST
@@ -70,7 +77,7 @@ def read_list_neighborhoods(
     """
     coll: Collection = request.app.db_neighborhoods
     skip, limit, sort = httpParamsInterpreter(params)
-    if params.filters and params.filters!={}:
+    if params.filters and params.filters != {}:
         query = Filter(**params.filters).make()
     l_aggreg = []
     try:
@@ -88,13 +95,13 @@ def read_list_neighborhoods(
     "/distinct",
     response_description="get all distinct neighborhoods",
     status_code=status.HTTP_200_OK,
-    response_model=list[str],
+    response_model=list[dict],
 )
 def get_distinct_neighborhood(
     request: Request,
     params: Annotated[HttpParams, Body(embed=True)] = HttpParams(
-        sort=SortParams(field="name",way=1)
-    )
+        sort=SortParams(field="name", way=1)
+    ),
 ):
     """
     GET DISTINCT NEIGHBORHOOD NAMES
@@ -125,14 +132,65 @@ def get_distinct_neighborhood(
     l_aggreg = [
         {"$match": {distinctField: {"$ne": ""}}},  # no empty field allowed
         {
-            "$group": {"_id": f"${distinctField}"} # group by field to get distinct names
-        }
+            "$group": {
+                "_id": f"${distinctField}",  # group by field to get distinct names
+                "coords": {"$addToSet": "$geometry.coordinates"},
+                "name": {"$addToSet": "$name"},
+            }
+        },
     ]
-    sort and l_aggreg.append({"$sort": sort})
+    sort and l_aggreg.append(
+        {"$sort": {"_id": list(sort.values())[0]}}
+    )  # _id is the right target after $group stage
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
     cursor = coll.aggregate(l_aggreg)
-    return list(map(lambda x: x["_id"], cursor))
+    return list(cursor)
+
+
+@neighb_router.put("/update/field/set", response_description="set field value")
+def update_neighborhood_value(
+    request: Request,
+    new_item: Annotated[dict[str, Any], Body(embed=True)],
+    params: Annotated[HttpParams, Body(embed=True)],
+):
+    """
+    FOR DATABASE MANAGMENT ONLY! Set a field value and create the field if needed.
+
+    @param new_item:\n
+        {field_name<str>: value<any>} : field name and it's value.\n
+
+    @param params:\n
+        nbr(int): number of items required.\n
+        page_nbr(int): page number.\n
+        filters(Filter): filters for request.\n
+        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
+
+    @return:\n
+       {field: number of items processed}[]
+    """
+    coll: Collection = request.app.db_neighborhoods
+    skip, limit, sort = httpParamsInterpreter(params)
+    # update_many(filter<{'name':'Wendys'}>, update<{$set:{'cuisine':'BUDU'}}, upsert<Bool: insert if not present>>)
+    if params.filters and len(params.filters) > 0:
+        query = Filter(**params.filters).make()
+    l_aggreg = [{"$set": new_item}]
+    query and l_aggreg.insert(0, query["$match"])
+    skip and l_aggreg.append(skip)
+    limit and l_aggreg.append(limit)
+    # cursor = coll.update_many(*l_aggreg, upsert=True)
+    # if cursor.modified_count > 0:
+    #     return {
+    #         "new_value": new_item,
+    #         "matched": cursor.matched_count,
+    #         "modified": cursor.modified_count,
+    #     }
+    # else:
+    #     raise HTTPException(
+    #         status_code=404,
+    #         detail=f"No item modified for new item {new_item} and filters {params.filters}.",
+    #     )
+
 
 
 @neighb_router.put(
@@ -145,7 +203,7 @@ def update_neighborhood(
     request: Request,
     name: Annotated[str, Body(embed=True)],
     changes: Annotated[dict, Body(embed=True)],
-    params: Annotated[HttpParams, Body(embed=True)]
+    params: Annotated[HttpParams, Body(embed=True)],
 ):
     """
     UPDATE A NEIGHBORHOOD
