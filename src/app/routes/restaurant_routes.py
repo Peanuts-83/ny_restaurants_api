@@ -45,7 +45,7 @@ def read_one_restaurant(
     # gain autocompletion by strongly typing collection
     coll: Collection = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
-    if params.filters and params.filters!={}:
+    if params.filters and params.filters != {}:
         query = Filter(**params.filters).make()
     l_aggreg = []
     try:
@@ -59,6 +59,7 @@ def read_one_restaurant(
     # Aggregation pipes return list
     return list(cursor)[0]
 
+
 @rest_router.post(
     "/list",
     response_description="get list of restaurants",
@@ -66,8 +67,7 @@ def read_one_restaurant(
     response_model=list[Restaurant],
 )
 def read_list_restaurants(
-    request: Request,
-    params: Annotated[HttpParams, Body(embed=True)]
+    request: Request, params: Annotated[HttpParams, Body(embed=True)]
 ):
     """
     GET RESTAURANTS LIST
@@ -83,9 +83,13 @@ def read_list_restaurants(
     """
     coll: Collection = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
-    if params.filters and params.filters!={}:
+    if not limit:
+        limit = 30
+    if params.filters and params.filters != {}:
         query = Filter(**params.filters).make()
-    l_aggreg = []
+
+    l_aggreg = [{"$match": {"name": {"$ne": ""}}}]
+
     try:
         l_aggreg.append(query)
     except:
@@ -101,11 +105,10 @@ def read_list_restaurants(
     "/distinct",
     response_description="get all distinct <field>",
     status_code=status.HTTP_200_OK,
-    response_model=list[str],
+    response_model=list[dict],
 )
 def get_distinct_field(
-    request: Request,
-    params: Annotated[HttpParams, Body(embed=True)]
+    request: Request, params: Annotated[HttpParams, Body(embed=True)]
 ):
     """
     GET DISTINCT VALUES OF A FIELD from Restaurants collection.
@@ -114,13 +117,17 @@ def get_distinct_field(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): no filters used.\n
-        sort(tuple[field,way]): use field for distinct values - ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): use field for distinct values - ascending order by default.\n
 
     @return:\n
         list[str]: a list of names<str>.\n
     """
     coll: Collection = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
+    if params.filters and params.filters != {}:
+        query = Filter(**params.filters).make()
+
+    # distinct values check
     distinctField = list(sort.keys())[0]
     distinctWay = sort[distinctField]
     if distinctField is None or distinctField == "":
@@ -133,17 +140,40 @@ def get_distinct_field(
             status_code=422,
             detail=f"Sort way is not properly defined: {distinctWay} from {sort}",
         )
+
+    # start building aggregation pipeline
     l_aggreg = [
         {"$match": {distinctField: {"$ne": ""}}},  # no empty field allowed
         {
-            "$group": {"_id": f"${distinctField}"} # group by field to get distinct names
-        }
+            "$group": {
+                "_id": f"${distinctField}",  # group by field to get distinct names
+                "name": {"$addToSet": f"${distinctField}"}
+            }
+        },
     ]
-    sort and l_aggreg.append({"$sort": {"_id": list(sort.values())[0]}}) # _id is the right target after $group stage
+
+    # additionnal values for restaurant name request
+    l_name_options = {
+                "borough": {"$addToSet": "$borough"},
+                "cuisine": {"$addToSet": "$cuisine"},
+                "street": {"$addToSet": "$address.street"},
+                "coord": {"$addToSet": "$address.coord"}}
+    if distinctField == 'name':
+        l_aggreg[1]["$group"] = {**l_aggreg[1]["$group"],**l_name_options}
+
+    # complete aggregation pipeline
+    try:
+        l_aggreg.insert(1,query)
+    except:
+        pass
+    sort and l_aggreg.append(
+        {"$sort": {"_id": list(sort.values())[0]}}
+    )  # _id is the right target after $group stage
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
     cursor = coll.aggregate(l_aggreg)
-    return list(map(lambda x: x["_id"], cursor))
+    result = list(cursor_to_object(cursor))
+    return list(map(lambda d: {k:v[0] for k,v in d.items()}, result))
 
 
 @rest_router.post(

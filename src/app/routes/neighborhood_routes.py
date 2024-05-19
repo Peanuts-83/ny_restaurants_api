@@ -77,9 +77,13 @@ def read_list_neighborhoods(
     """
     coll: Collection = request.app.db_neighborhoods
     skip, limit, sort = httpParamsInterpreter(params)
+    if not limit:
+        limit = 30
     if params.filters and params.filters != {}:
         query = Filter(**params.filters).make()
-    l_aggreg = []
+
+    l_aggreg = [{"$match": {"name": {"$ne": ""}}}]
+
     try:
         l_aggreg.append(query)
     except:
@@ -110,13 +114,17 @@ def get_distinct_neighborhood(
         nbr(int): number of items required.\n
         page_nbr(int): page number.\n
         filters(Filter): filters for request.\n
-        sort(SortParams{field:str, way:1|-1}): ascending order by default.\n
+        sort(SortParams{field:str, way:1|-1}): use field for distinct values - ascending order by default.\n
 
     @return:\n
         list[str]: list of names.
     """
     coll: Collection = request.app.db_neighborhoods
     skip, limit, sort = httpParamsInterpreter(params)
+    if params.filters and params.filters != {}:
+        query = Filter(**params.filters).make()
+
+    # distinct values check
     distinctField = list(sort.keys())[0]
     distinctWay = sort[distinctField]
     if distinctField is None or distinctField == "":
@@ -129,23 +137,32 @@ def get_distinct_neighborhood(
             status_code=422,
             detail=f"Sort way is not properly defined: {distinctWay} from {sort}",
         )
+
+    # start building aggregation pipeline
     l_aggreg = [
         {"$match": {distinctField: {"$ne": ""}}},  # no empty field allowed
         {
             "$group": {
                 "_id": f"${distinctField}",  # group by field to get distinct names
-                "coords": {"$addToSet": "$geometry.coordinates"},
-                "name": {"$addToSet": "$name"},
+                "coord": {"$addToSet": "$geometry.centroid"},
+                "name": {"$addToSet": f"${distinctField}"},
             }
         },
     ]
+
+    # complete aggregation pipeline
+    try:
+        l_aggreg.insert(1, query)
+    except:
+        pass
     sort and l_aggreg.append(
         {"$sort": {"_id": list(sort.values())[0]}}
     )  # _id is the right target after $group stage
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
     cursor = coll.aggregate(l_aggreg)
-    return list(cursor)
+    result = list(cursor_to_object(cursor))
+    return list(map(lambda d: {k: v[0] for k, v in d.items()}, result))
 
 
 @neighb_router.put("/update/field/set", response_description="set field value")
@@ -190,7 +207,6 @@ def update_neighborhood_value(
             status_code=404,
             detail=f"No item modified for new item {new_item} and filters {params.filters}.",
         )
-
 
 
 @neighb_router.put(
