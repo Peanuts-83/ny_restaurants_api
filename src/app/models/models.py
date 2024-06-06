@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from bson import ObjectId
 from pydantic import BaseModel, Field, ValidationError, conlist
 
@@ -36,6 +36,8 @@ class Geometry(BaseModel):
     # use "constrained list" with conlist - not properly interpreted by pylance
     coordinates: Any  # type: ignore
     type: str
+    centroid: Optional[list[float]] = None
+
 
 class Neighborhood(BaseModel):
     _id: ObjectId # _id is treated as private and not returned by fastapi
