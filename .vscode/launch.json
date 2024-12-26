@@ -9,7 +9,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
-            // "justMyCode": false,
+            // "justMyCode": false, // to debugg also in libraries!
             "args": [
                 "src.app.main:app",
                 "--reload"
