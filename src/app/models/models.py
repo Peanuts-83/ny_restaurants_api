@@ -45,6 +45,11 @@ class Neighborhood(BaseModel):
     geometry: Geometry
     name: str
 
+class Borough(BaseModel):
+    _id: ObjectId
+    geometry: Geometry
+    name: str
+
 ### Geospatial models #
 class Point(BaseModel):
     longitude: float = Field(float, gte=-180, lte=180)
