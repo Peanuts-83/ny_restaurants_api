@@ -13,9 +13,17 @@ def cursor_to_object(cursor: CursorType, rm_datetime: bool = False) -> dict|list
         bool - Convert datetime to string : datetime can cause Exceptions.
 
     """
-    l_result = list(map(lambda item: {k:v for k,v in item.items() if k!='_id'}, list(cursor)))
-    if rm_datetime:
-        l_result = list(map(lambda item: convert_datetime_to_str(item), l_result))
+    try:
+        # cursorList > find result
+        l_result = list(map(lambda item: {k:v for k,v in item.items() if k!='_id'}, list(cursor)))
+        if rm_datetime:
+            l_result = list(map(lambda item: convert_datetime_to_str(item), l_result))
+    except:
+        # cursorSingle > find_one result
+        l_result = dict(cursor)
+        l_result.pop('_id', None)
+        if rm_datetime:
+            l_result = convert_datetime_to_str(l_result)
     return l_result
 
 def convert_datetime_to_str(obj):
