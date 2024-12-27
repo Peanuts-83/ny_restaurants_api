@@ -50,6 +50,16 @@ class Borough(BaseModel):
     geometry: Geometry
     name: str
 
+class Distinct(BaseModel):
+    name: str
+
+class ListResponse(BaseModel):
+    data: list[Restaurant|Neighborhood|Borough|Distinct]
+    page_nbr: int
+
+class Response(BaseModel):
+    data: Restaurant|Neighborhood|Borough
+
 ### Geospatial models #
 class Point(BaseModel):
     longitude: float = Field(float, gte=-180, lte=180)

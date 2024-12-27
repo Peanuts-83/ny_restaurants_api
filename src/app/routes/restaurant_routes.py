@@ -14,7 +14,7 @@ from ..middleware.http_params import (
     SortWay,
     httpParamsInterpreter,
 )
-from ..models.models import Restaurant
+from ..models.models import ListResponse, Restaurant
 
 ### RESTAURANT_ROUTER
 rest_router = APIRouter()
@@ -64,7 +64,7 @@ def read_one_restaurant(
     "/list",
     response_description="get list of restaurants",
     status_code=status.HTTP_200_OK,
-    response_model=list[Restaurant],
+    response_model=ListResponse,
 )
 def read_list_restaurants(
     request: Request, params: Annotated[HttpParams, Body(embed=True)]
@@ -98,14 +98,14 @@ def read_list_restaurants(
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
     cursor = coll.aggregate(l_aggreg)
-    return cursor
+    return {"data": cursor, "page_nbr": params.page_nbr}
 
 
 @rest_router.post(
     "/distinct",
     response_description="get all distinct <field>",
     status_code=status.HTTP_200_OK,
-    response_model=list[dict],
+    response_model=ListResponse,
 )
 def get_distinct_field(
     request: Request, params: Annotated[HttpParams, Body(embed=True)]
@@ -173,7 +173,7 @@ def get_distinct_field(
     limit and l_aggreg.append({"$limit": limit})
     cursor = coll.aggregate(l_aggreg)
     result = list(cursor_to_object(cursor))
-    return list(map(lambda d: {k:v[0] for k,v in d.items()}, result))
+    return {"data": list(map(lambda d: {k:v[0] for k,v in d.items()}, result)), "page_nbr": params.page_nbr}
 
 
 @rest_router.post(

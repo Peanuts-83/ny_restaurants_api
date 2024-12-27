@@ -12,7 +12,7 @@ from ..middleware.http_params import (
     httpParamsInterpreter,
 )
 from ..models.utils import IdMapper
-from ..models.models import Borough, Point
+from ..models.models import Borough, ListResponse, Point
 
 # BOROUGH_ROUTER
 borough_router = APIRouter(prefix="/borough")
@@ -58,7 +58,7 @@ def read_one_borough(
     "/list",
     response_description="get list of boroughs",
     status_code=status.HTTP_200_OK,
-    response_model=list[Borough],
+    response_model=ListResponse,
 )
 def read_list_boroughs(
     request: Request, params: Annotated[HttpParams, Body(embed=True)]
@@ -92,7 +92,7 @@ def read_list_boroughs(
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
     cursor = coll.aggregate(l_aggreg)
-    return cursor
+    return {"data": cursor, "page_nbr": params.page_nbr}
 
 
 @borough_router.post(

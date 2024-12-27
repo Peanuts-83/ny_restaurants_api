@@ -12,7 +12,7 @@ from ..middleware.http_params import (
     httpParamsInterpreter,
 )
 from ..models.utils import IdMapper
-from ..models.models import Neighborhood
+from ..models.models import ListResponse, Neighborhood
 
 # NEIGHBORHOOD_ROUTER
 neighb_router = APIRouter(prefix="/neighborhood")
@@ -99,7 +99,7 @@ def read_list_neighborhoods(
     "/distinct",
     response_description="get all distinct neighborhoods",
     status_code=status.HTTP_200_OK,
-    response_model=list[dict],
+    response_model=ListResponse,
 )
 def get_distinct_neighborhood(
     request: Request,
@@ -161,8 +161,9 @@ def get_distinct_neighborhood(
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
     cursor = coll.aggregate(l_aggreg)
-    result = list(cursor_to_object(cursor))
-    return list(map(lambda d: {k: v[0] for k, v in d.items()}, result))
+    # result = list(cursor_to_object(cursor))
+    # return list(map(lambda d: {k: v[0] for k, v in d.items()}, result))
+    return {"data": cursor, "page_nbr": params.page_nbr}
 
 
 @neighb_router.put("/update/field/set", response_description="set field value")
