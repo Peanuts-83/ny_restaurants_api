@@ -57,9 +57,12 @@ class CustomMiddleware(BaseHTTPMiddleware):
                 error_content["errors"] = e._errors
             return Response(
                 status_code=status_code,
-                content=error_content,
+                content=json.dumps(error_content, default=self.safe_serializer),
                 headers={"Content-Type": "application/json"},
             )
+
+    def safe_serializer(self, obj):
+        return str(obj)
 
 
 class HttpResponse(BaseModel):

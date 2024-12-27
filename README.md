@@ -27,9 +27,13 @@ Up your choice to use it or not.
 Use any package manager (pip, conda, ...) [to install fastapi, uvicorn](https://fastapi.tiangolo.com/tutorial/#install-fastapi) and required librairies:
 
 ```bash
-pip install "fastapi[all]"
+# install with conda and a virtual env in my case
+conda create -n NYCrest_env python=3.12.7 anaconda
+conda activate NYCrest_env
 pip install -r requirements.txt
 ```
+
+Select right python interpreter: CTL+SHIFT+P "Python select interpreter" (I select NYCrest_env)
 
 ### First launch - set centroid field
 

@@ -40,6 +40,15 @@ class OP(Enum):
     OR = "$or"
     NOR = "$nor"
 
+class SingleFilterType(BaseModel):
+    value: Any
+    operator_field: OP_FIELD
+    field: str
+
+class CombinedFilterType(BaseModel):
+    filter_elements: list[SingleFilterType]
+    operator: OP
+
 
 class Filter():
     """
@@ -49,11 +58,10 @@ class Filter():
     Contains main methods and error management applied for both filter classes.
     """
     value: Any = None
-    operator_field: str = None
-    operator_list: str = None
+    operator_field: OP_FIELD = None
     field: str = None
-    filter_elements: list = None
-    operator: OP | OP_FIELD = None
+    filter_elements: list[SingleFilterType] = None
+    operator: OP = None
 
     def __init__(self, **args):
         super().__init__()
@@ -68,41 +76,41 @@ class Filter():
 
     def make(self):
         l_request = {}
-        if all(param is None for param in [self.value, self.operator, self.operator_field, self.operator_list, self.field, self.filter_elements]):
+        if all(param is None for param in [self.value, self.operator, self.operator_field, self.operator_field, self.field, self.filter_elements]):
             return l_request
         if not self.filter_elements:
             # SingleFilter
-            l_request = {"$match": {}}
-            l_request["$match"] = self.doBuildSingle()
+            l_request = {}
+            l_request["$match"] = self.doBuildSingle(self.field, self.operator_field, self.value)
         else:
             # CombinedFilter
-            elements = [ self.doBuildSingle(**single_filter) for single_filter in self.filter_elements ]
+            elements = [ self.doBuildSingle(*list(single_filter.values())) for single_filter in self.filter_elements ]
             l_request = self.doBuildCombined(elements)
         return l_request
 
     #  Requete en aggregation pipeline
-    def doBuildSingle(self) -> dict:
+    def doBuildSingle(self, field:str, operator:OP_FIELD, val:any) -> dict:
         # {<field>: {$eq: <value>}}
-        if self.operator_field == OP_FIELD.EQ.value:
-            return {self.field: self.value}
+        if operator == OP_FIELD.EQ.value:
+            return {field: {operator: val}}
         # {<field>: {$ne: <value>}}
-        elif self.operator_field == OP_FIELD.NE.value:
-            return {self.field: {self.operator_field: self.value}}
+        elif operator == OP_FIELD.NE.value:
+            return {field: {operator: val}}
         # {<field>: {$not: <value{}>}} # value ex. {"$gt":5}
-        elif self.operator_field == OP_FIELD.NOT.value:
-            self.checkForDict(self.value).value # Dict required
-            return {self.field: {self.operator_field: self.value}}
+        elif operator == OP_FIELD.NOT.value:
+            self.checkForDict(val).value # Dict required
+            return {field: {operator: val}}
         # {<field>: {$regex: <value>}}
-        elif self.operator_field == OP_FIELD.CONTAIN.value:
-            return {self.field: {self.operator_field: f".*{self.value}.*", "$options": "i"}}
+        elif operator == OP_FIELD.CONTAIN.value:
+            return {field: {operator: f".*{val}.*", "$options": "i"}}
         # {<field>: {$in: <value[]>}}
-        elif self.operator_field == OP_FIELD.IN.value or self.operator_field == OP_FIELD.NOT_IN.value:
-            self.checkForList(self.value) # List required
-            return {self.field: {self.operator_field: self.value}}
+        elif operator == OP_FIELD.IN.value or operator == OP_FIELD.NOT_IN.value:
+            self.checkForList(val) # List required
+            return {field: {operator: val}}
         # {<field>: {$lt|$lte|$gt|$gte: <value>}}
-        elif self.operator_field in [OP_FIELD.GT.value, OP_FIELD.GTE.value, OP_FIELD.LT.value, OP_FIELD.LTE.value]:
+        elif operator in [OP_FIELD.GT.value, OP_FIELD.GTE.value, OP_FIELD.LT.value, OP_FIELD.LTE.value]:
             #  can operate on numbers and strings
-            return {self.field: {self.operator_field: self.value}}
+            return {field: {operator: val}}
 
     def doBuildCombined(self, elements) -> dict:
         """
@@ -110,10 +118,10 @@ class Filter():
         ex: {$nor: [{"grades.grade": {$gt: "A"}}]} > only grade $lte "A"
         ex: {"grades.grade": {$gt: "A"}} > some grade "A"
         """
-        l_request = {"$match": {}}
+        l_request = {'$match': {}}
         # {$and|$or|$nor: <SingleFilter[]>}
         if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value]:
-            l_request[self.operator] = elements
+            l_request['$match'][self.operator] = elements
         return l_request
 
     # value ErrorManagement #
@@ -136,15 +144,15 @@ class SingleFilter(Filter):
     """
     SINGLE_FILTER: { value, operator_field, field }
     params:
-        value: Any
-        operator_field: OP_FIELD()
         field: Collection_field
+        operator_field: OP_FIELD()
+        value: Any
     """
     def __init__(self, value, operator_field: OP_FIELD, field: str): # type: ignore
         super().__init__()
-        self.value = value
-        self.operator_field = operator_field
         self.field = field
+        self.operator_field = operator_field
+        self.value = value
 
     def apply(self):
         for op in OP_FIELD:
