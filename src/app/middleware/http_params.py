@@ -80,7 +80,7 @@ class Filter():
             return l_request
         if not self.filter_elements:
             # SingleFilter
-            l_request = {}
+            l_request = {"$project": { "_id":0 }}
             l_request["$match"] = self.doBuildSingle(self.field, self.operator_field, self.value)
         else:
             # CombinedFilter
@@ -121,7 +121,7 @@ class Filter():
         l_request = {'$match': {}}
         # {$and|$or|$nor: <SingleFilter[]>}
         if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value]:
-            l_request['$match'][self.operator] = elements
+            l_request['$match'][self.operator] = [*elements, {"$project": { "_id":0 }}]
         return l_request
 
     # value ErrorManagement #
