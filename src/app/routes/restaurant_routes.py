@@ -83,8 +83,6 @@ def read_list_restaurants(
     """
     coll: Collection = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
-    if not limit:
-        limit = 30
     if params.filters and params.filters != {}:
         query = Filter(**params.filters).make()
 
