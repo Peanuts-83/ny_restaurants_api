@@ -91,7 +91,7 @@ def read_list_restaurants(
     l_aggreg = [{"$match": {"name": {"$ne": ""}}}]
 
     try:
-        l_aggreg.append(query)
+        l_aggreg = query
     except:
         pass
     sort and l_aggreg.append({"$sort": sort})

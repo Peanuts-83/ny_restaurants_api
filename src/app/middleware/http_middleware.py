@@ -29,16 +29,17 @@ class CustomMiddleware(BaseHTTPMiddleware):
             if hasattr(e, "status_code"):
                 status_code = e.status_code
             if hasattr(e, "detail"):
-                error_detail = e.detail
+                error_content['detail'] = e.detail
             if hasattr(e, "obj"):
                 error_content["obj"] = e.obj
             if hasattr(e, "args"):
                 error_content["args"] = e.args
             if hasattr(e, "_errors"):
                 error_content["errors"] = e._errors
+            # raise HTTPException(status_code=status_code, detail=json.dumps(error_content, default=self.safe_serializer))
             return Response(
                 status_code=status_code,
-                content=json.dumps(error_content),
+                content=json.dumps(error_content, default=self.safe_serializer),
                 headers={"Content-Type": "application/json"},
             )
         except Exception as e:
@@ -48,13 +49,14 @@ class CustomMiddleware(BaseHTTPMiddleware):
             if hasattr(e, "status_code"):
                 status_code = e.status_code
             if hasattr(e, "detail"):
-                error_detail = e.detail
+                error_content['detail'] = e.detail
             if hasattr(e, "obj"):
                 error_content["obj"] = e.obj
             if hasattr(e, "args"):
                 error_content["args"] = e.args
             if hasattr(e, "_errors"):
                 error_content["errors"] = e._errors
+            # raise HTTPException(status_code=status_code, detail=json.dumps(error_content, default=self.safe_serializer))
             return Response(
                 status_code=status_code,
                 content=json.dumps(error_content, default=self.safe_serializer),

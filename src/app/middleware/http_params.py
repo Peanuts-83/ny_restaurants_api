@@ -1,4 +1,5 @@
 from enum import Enum
+import json
 from typing import Any, Optional, Tuple
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -31,6 +32,7 @@ class OP_FIELD(Enum):
     LT = "$lt"
     LTE = "$lte"
     NOT = "$not"
+    GEONEAR = "$geoNear"
 
 class OP(Enum):
     """
@@ -80,12 +82,21 @@ class Filter():
             return l_request
         if not self.filter_elements:
             # SingleFilter
-            l_request = {"$project": { "_id":0 }}
-            l_request["$match"] = self.doBuildSingle(self.field, self.operator_field, self.value)
+            l_request = [{"$project": { "_id":0 }}]
+            if not self.operator_field == OP_FIELD.GEONEAR.value:
+                l_request.insert(0, {"$match": self.doBuildSingle(self.field, self.operator_field, self.value)})
+            else:
+                l_geoRequest = self.doBuildSingle(self.field, self.operator_field, self.value)
+                l_request.insert(0, l_geoRequest)
         else:
-            # CombinedFilter
-            elements = [ self.doBuildSingle(*list(single_filter.values())) for single_filter in self.filter_elements ]
-            l_request = self.doBuildCombined(elements)
+            # CombinedFilter - geonear operator treated at last
+            has_geoNearFilter = any(f['operator_field'] == OP_FIELD.GEONEAR.value for f in self.filter_elements)
+            l_filters = [f for f in self.filter_elements if f['operator_field'] != OP_FIELD.GEONEAR.value]
+            if has_geoNearFilter:
+                l_geoNearFilter = [f for f in self.filter_elements if f['operator_field'] == OP_FIELD.GEONEAR.value][0]
+                l_filters.append(l_geoNearFilter)
+            elements: list[SingleFilter] = [ self.doBuildSingle(*list(single_filter.values())) for single_filter in l_filters ]
+            l_request = self.doBuildCombined(elements, has_geoNearFilter)
         return l_request
 
     #  Requete en aggregation pipeline
@@ -111,17 +122,39 @@ class Filter():
         elif operator in [OP_FIELD.GT.value, OP_FIELD.GTE.value, OP_FIELD.LT.value, OP_FIELD.LTE.value]:
             #  can operate on numbers and strings
             return {field: {operator: val}}
+        # {<field>: near: {type: 'Point',coordinates: [ -73.982, 40.623 ] }, distanceField: 'distance', maxDistance: 500, query: {}, includeLocs: '0', spherical:}
+        elif operator == OP_FIELD.GEONEAR.value:
+            return {operator: {
+                "near": {
+                    "type": "Point", "coordinates": field
+                },
+                "distanceField": "distance",
+                "maxDistance": val,
+                "query": {},
+                "spherical": True
+            }}
 
-    def doBuildCombined(self, elements) -> dict:
+    def doBuildCombined(self, elements: list, has_geoNearFilter = False) -> dict:
         """
         Hint: to get $all operator on values of sub-arrays, use $nor operator with reversed query.
         ex: {$nor: [{"grades.grade": {$gt: "A"}}]} > only grade $lte "A"
         ex: {"grades.grade": {$gt: "A"}} > some grade "A"
         """
-        l_request = {'$match': {}}
-        # {$and|$or|$nor: <SingleFilter[]>}
-        if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value]:
-            l_request['$match'][self.operator] = [*elements, {"$project": { "_id":0 }}]
+        if not has_geoNearFilter:
+            l_request = [{'$match': {}}, {"$project": { "_id":0 }}]
+            # {$and|$or|$nor: <SingleFilter[]>}
+            if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value]:
+                l_request[0]['$match'][self.operator] = elements
+            else:
+                l_request[0]['$match'] = {*elements}
+        else:
+            l_request = [f for f in elements if f['operator_field'] == OP_FIELD.GEONEAR.value]
+            l_request.append({"$project": { "_id":0 }})
+            l_query = [f for f in elements if f['operator_field'] != OP_FIELD.GEONEAR.value]
+            if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value]:
+                l_request[0]['query']['$and'] = l_query
+            else:
+                l_request[0]['query'] = {*l_query}
         return l_request
 
     # value ErrorManagement #
