@@ -148,13 +148,13 @@ class Filter():
             else:
                 l_request[0]['$match'] = {*elements}
         else:
-            l_request = [f for f in elements if f['operator_field'] == OP_FIELD.GEONEAR.value]
+            l_request = [f for f in elements if OP_FIELD.GEONEAR.value in f]
             l_request.append({"$project": { "_id":0 }})
-            l_query = [f for f in elements if f['operator_field'] != OP_FIELD.GEONEAR.value]
+            l_query = [f for f in elements if OP_FIELD.GEONEAR.value not in f]
             if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value]:
-                l_request[0]['query']['$and'] = l_query
+                l_request[0][OP_FIELD.GEONEAR.value]['query']['$and'] = l_query
             else:
-                l_request[0]['query'] = {*l_query}
+                l_request[0][OP_FIELD.GEONEAR.value]['query'] = {*l_query}
         return l_request
 
     # value ErrorManagement #
