@@ -58,7 +58,7 @@ def read_one_neighborhood(
     "/list",
     response_description="get list of neighborhoods",
     status_code=status.HTTP_200_OK,
-    response_model=list[Neighborhood],
+    response_model=ListResponse,
 )
 def read_list_neighborhoods(
     request: Request, params: Annotated[HttpParams, Body(embed=True)]
@@ -77,22 +77,20 @@ def read_list_neighborhoods(
     """
     coll: Collection = request.app.db_neighborhoods
     skip, limit, sort = httpParamsInterpreter(params)
-    if not limit:
-        limit = 30
     if params.filters and params.filters != {}:
         query = Filter(**params.filters).make()
 
     l_aggreg = [{"$match": {"name": {"$ne": ""}}}]
 
     try:
-        l_aggreg.append(query)
+        l_aggreg = query
     except:
         pass
     sort and l_aggreg.append({"$sort": sort})
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
     cursor = coll.aggregate(l_aggreg)
-    return cursor
+    return {"data": cursor, "page_nbr": params.page_nbr}
 
 
 @neighb_router.post(
@@ -145,14 +143,14 @@ def get_distinct_neighborhood(
             "$group": {
                 "_id": f"${distinctField}",  # group by field to get distinct names
                 "coord": {"$addToSet": "$geometry.centroid"},
-                "name": {"$addToSet": f"${distinctField}"},
+                "name": {"$first": f"${distinctField}"},
             }
         },
     ]
 
     # complete aggregation pipeline
     try:
-        l_aggreg.insert(1, query)
+        l_aggreg.insert(1, *query)
     except:
         pass
     sort and l_aggreg.append(
@@ -160,9 +158,8 @@ def get_distinct_neighborhood(
     )  # _id is the right target after $group stage
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
+    l_aggreg.append({'$project': {'_id': 0}})
     cursor = coll.aggregate(l_aggreg)
-    # result = list(cursor_to_object(cursor))
-    # return list(map(lambda d: {k: v[0] for k, v in d.items()}, result))
     return {"data": cursor, "page_nbr": params.page_nbr}
 
 

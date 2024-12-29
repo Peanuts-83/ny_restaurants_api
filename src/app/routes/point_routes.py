@@ -153,6 +153,7 @@ def get_restaurants_within(
     ),
 ):
     """
+    /!\ NOT USED - PREFER $geoNear REQUEST /!\
     Get all the restaurants inside a shape of coordinates.\n
 
     @param shape:\n

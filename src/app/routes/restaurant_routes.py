@@ -145,7 +145,7 @@ def get_distinct_field(
         {
             "$group": {
                 "_id": f"${distinctField}",  # group by field to get distinct names
-                "name": {"$addToSet": f"${distinctField}"}
+                "name": {"$first": f"${distinctField}"}
             }
         },
     ]
@@ -161,7 +161,7 @@ def get_distinct_field(
 
     # complete aggregation pipeline
     try:
-        l_aggreg.insert(1,query)
+        l_aggreg.insert(1,*query)
     except:
         pass
     sort and l_aggreg.append(
@@ -169,9 +169,9 @@ def get_distinct_field(
     )  # _id is the right target after $group stage
     skip and l_aggreg.append({"$skip": skip})
     limit and l_aggreg.append({"$limit": limit})
+    l_aggreg.append({'$project': {'_id': 0}})
     cursor = coll.aggregate(l_aggreg)
-    result = list(cursor_to_object(cursor))
-    return {"data": list(map(lambda d: {k:v[0] for k,v in d.items()}, result)), "page_nbr": params.page_nbr}
+    return {"data": cursor, "page_nbr": params.page_nbr}
 
 
 @rest_router.post(

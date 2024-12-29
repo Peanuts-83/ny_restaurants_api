@@ -77,15 +77,13 @@ def read_list_boroughs(
     """
     coll: Collection = request.app.db_boroughs
     skip, limit, sort = httpParamsInterpreter(params)
-    if not limit:
-        limit = 30
     if params.filters and params.filters != {}:
         query = Filter(**params.filters).make()
 
     l_aggreg = [{"$match": {"name": {"$ne": ""}}}]
 
     try:
-        l_aggreg.append(query)
+        l_aggreg = query
     except:
         pass
     sort and l_aggreg.append({"$sort": sort})
@@ -99,7 +97,7 @@ def read_list_boroughs(
     "/contain",
     response_description="check for coord's borough part of",
     status_code=status.HTTP_200_OK,
-    # response_model=str
+    response_model=ListResponse,
 )
 def borough_contain(
     request: Request,
