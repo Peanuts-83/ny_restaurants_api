@@ -88,6 +88,76 @@ This way you shall access your cluster, databases and collections.
 
 The database used in this project called **sample_restaurants** is available in the **Sample Dataset** you can load on any free Atlas mongodb account.
 
+## Real open data - NYC Open Data (Socrata)
+
+### DocRef
+
+* https://dev.socrata.com/foundry/bronx.lehman.cuny.edu/nc96-khaq
+* https://support.socrata.com/hc/en-us/articles/115005364207-Access-Data-Insights-Data-using-OData
+
+### API
+
+* https://data.cityofnewyork.us/api/odata/v4/pitm-atqc
+
+### Analyse
+
+Real recent data could be used in a second time, on condition to be reformated the right way to apply current model.
+We can download data in *.csv format, which allows us to rework them and insert them into a DB, and integrate them into a framework which allows a more elegant query system...
+
+The SoQL (SQL like) query used for the public API is encoded in the url, which gives a disgusting blob! No way I would use this way of exposing my requests. Come on baby, don't you know body payload?!!  XD
+
+Query for top 100 results from restaurant table with all columns:
+
+* URl
+
+```bash
+https://data.cityofnewyork.us/resource/pitm-atqc.json?$query=SELECT%0A%20%20%60objectid%60%2C%0A%20%20%60globalid%60%2C%0A%20%20%60seating_interest_sidewalk%60%2C%0A%20%20%60restaurant_name%60%2C%0A%20%20%60legal_business_name%60%2C%0A%20%20%60doing_business_as_dba%60%2C%0A%20%20%60bulding_number%60%2C%0A%20%20%60street%60%2C%0A%20%20%60borough%60%2C%0A%20%20%60zip%60%2C%0A%20%20%60business_address%60%2C%0A%20%20%60food_service_establishment%60%2C%0A%20%20%60sidewalk_dimensions_length%60%2C%0A%20%20%60sidewalk_dimensions_width%60%2C%0A%20%20%60sidewalk_dimensions_area%60%2C%0A%20%20%60roadway_dimensions_length%60%2C%0A%20%20%60roadway_dimensions_width%60%2C%0A%20%20%60roadway_dimensions_area%60%2C%0A%20%20%60approved_for_sidewalk_seating%60%2C%0A%20%20%60approved_for_roadway_seating%60%2C%0A%20%20%60qualify_alcohol%60%2C%0A%20%20%60sla_serial_number%60%2C%0A%20%20%60sla_license_type%60%2C%0A%20%20%60landmark_district_or_building%60%2C%0A%20%20%60landmarkdistrict_terms%60%2C%0A%20%20%60healthcompliance_terms%60%2C%0A%20%20%60time_of_submission%60%2C%0A%20%20%60latitude%60%2C%0A%20%20%60longitude%60%2C%0A%20%20%60community_board%60%2C%0A%20%20%60council_district%60%2C%0A%20%20%60census_tract%60%2C%0A%20%20%60bin%60%2C%0A%20%20%60bbl%60%2C%0A%20%20%60nta%60%0AORDER%20BY%20%60objectid%60%20ASC%20NULL%20LAST%0ALIMIT%20100%0AOFFSET%200&
+```
+
+* Decoded request
+
+```SQL
+$query: SELECT
+  `objectid`,
+  `globalid`,
+  `seating_interest_sidewalk`,
+  `restaurant_name`,
+  `legal_business_name`,
+  `doing_business_as_dba`,
+  `bulding_number`,
+  `street`,
+  `borough`,
+  `zip`,
+  `business_address`,
+  `food_service_establishment`,
+  `sidewalk_dimensions_length`,
+  `sidewalk_dimensions_width`,
+  `sidewalk_dimensions_area`,
+  `roadway_dimensions_length`,
+  `roadway_dimensions_width`,
+  `roadway_dimensions_area`,
+  `approved_for_sidewalk_seating`,
+  `approved_for_roadway_seating`,
+  `qualify_alcohol`,
+  `sla_serial_number`,
+  `sla_license_type`,
+  `landmark_district_or_building`,
+  `landmarkdistrict_terms`,
+  `healthcompliance_terms`,
+  `time_of_submission`,
+  `latitude`,
+  `longitude`,
+  `community_board`,
+  `council_district`,
+  `census_tract`,
+  `bin`,
+  `bbl`,
+  `nta`
+ORDER BY `objectid` ASC NULL LAST
+LIMIT 100
+OFFSET 0
+```
+
 ## Project structure
 
 ### Demo
