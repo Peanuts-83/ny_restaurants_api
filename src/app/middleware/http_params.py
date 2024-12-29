@@ -143,17 +143,17 @@ class Filter():
         if not has_geoNearFilter:
             l_request = [{'$match': {}}, {"$project": { "_id":0 }}]
             # {$and|$or|$nor: <SingleFilter[]>}
-            if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value]:
+            if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value] and len(elements) > 0:
                 l_request[0]['$match'][self.operator] = elements
-            else:
+            elif len(elements) > 0:
                 l_request[0]['$match'] = {*elements}
         else:
             l_request = [f for f in elements if OP_FIELD.GEONEAR.value in f]
             l_request.append({"$project": { "_id":0 }})
             l_query = [f for f in elements if OP_FIELD.GEONEAR.value not in f]
-            if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value]:
+            if self.operator in [OP.AND.value, OP.OR.value, OP.NOR.value] and len(l_query) > 0:
                 l_request[0][OP_FIELD.GEONEAR.value]['query']['$and'] = l_query
-            else:
+            elif len(l_query) > 0:
                 l_request[0][OP_FIELD.GEONEAR.value]['query'] = {*l_query}
         return l_request
 
