@@ -83,7 +83,7 @@ def read_list_neighborhoods(
     l_aggreg = [{"$match": {"name": {"$ne": ""}}}]
 
     try:
-        l_aggreg = l_aggreg + query
+        l_aggreg = query
     except:
         pass
     sort and l_aggreg.append({"$sort": sort})

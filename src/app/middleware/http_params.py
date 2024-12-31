@@ -97,6 +97,7 @@ class Filter():
                 l_filters.append(l_geoNearFilter)
             elements: list[SingleFilter] = [ self.doBuildSingle(*list(single_filter.values())) for single_filter in l_filters ]
             l_request = self.doBuildCombined(elements, has_geoNearFilter)
+        l_request.insert(-1, {"$match": {"name": {"$ne": ""}}})
         return l_request
 
     #  Requete en aggregation pipeline
