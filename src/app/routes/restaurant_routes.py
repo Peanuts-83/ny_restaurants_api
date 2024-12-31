@@ -89,7 +89,7 @@ def read_list_restaurants(
     l_aggreg = [{"$match": {"name": {"$ne": ""}}}]
 
     try:
-        l_aggreg = query
+        l_aggreg = l_aggreg + query
     except:
         pass
     sort and l_aggreg.append({"$sort": sort})
@@ -123,6 +123,7 @@ def get_distinct_field(
     coll: Collection = request.app.db_restaurants
     skip, limit, sort = httpParamsInterpreter(params)
     if params.filters and params.filters != {}:
+        #  filters for distinct not working! TODO /!\
         query = Filter(**params.filters).make()
 
     # distinct values check
@@ -161,7 +162,7 @@ def get_distinct_field(
 
     # complete aggregation pipeline
     try:
-        l_aggreg.insert(1,*query)
+        l_aggreg = l_aggreg + query
     except:
         pass
     sort and l_aggreg.append(
