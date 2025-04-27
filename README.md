@@ -1,10 +1,10 @@
+# Newyork restaurants API
+
 [![Python](https://img.shields.io/badge/Language-Python-info?logo=python&logoColor=white&color=3776AB)](https://www.python.org/)
 [![Fastapi](https://img.shields.io/badge/Code-Fastapi-info?logo=fastapi&logoColor=white&color=009688)](https://fastapi.tiangolo.com/)
 [![MongoDB](https://img.shields.io/badge/Database-MongoDB-info?logo=mongodb&logoColor=white&color=47A248)](https://www.mongodb.com/)
 [![Docker](https://img.shields.io/badge/Deploy-Docker-info?logo=docker&logoColor=white&color=2496ED)](https://www.docker.com/)
 [![OpenApi](https://img.shields.io/badge/Doc-OpenApi-info?logo=openapiinitiative&logoColor=white&color=6BA539)](https://www.openapis.org/)
-
-# Newyork restaurants API
 
 [Fastapi](https://fastapi.tiangolo.com/) (python) app linked to [Atlas-Mongodb database](https://www.mongodb.com/).
 
@@ -45,10 +45,10 @@ You can then comment *console_setup()* line back.
 
 ### Run project
 
-Navigate to the directory where your main.py file is located and run:
+From root of the project run (using path to main file for relative imports resolution):
 
 ```bash
-uvicorn main:app --reload
+uvicorn src.app.main:app --reload
 ```
 
 **--reload** option is a watch mode that reloads app at each change in the source code.
@@ -68,7 +68,6 @@ This way you can place breakpoints in your code and access available data at any
 
 **OpenApi illustration**
 ![swagger](./assets/swagger.png)
-
 
 ## Security
 
@@ -92,12 +91,12 @@ The database used in this project called **sample_restaurants** is available in 
 
 ### DocRef
 
-* https://dev.socrata.com/foundry/bronx.lehman.cuny.edu/nc96-khaq
-* https://support.socrata.com/hc/en-us/articles/115005364207-Access-Data-Insights-Data-using-OData
+* <https://dev.socrata.com/foundry/bronx.lehman.cuny.edu/nc96-khaq>
+* <https://support.socrata.com/hc/en-us/articles/115005364207-Access-Data-Insights-Data-using-OData>
 
 ### API
 
-* https://data.cityofnewyork.us/api/odata/v4/pitm-atqc
+* <https://data.cityofnewyork.us/api/odata/v4/pitm-atqc>
 
 ### Analyse
 

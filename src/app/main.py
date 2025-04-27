@@ -30,16 +30,25 @@ def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+MODE = os.getenv('MODE', 'dev')
 # Define allowed origins, methods, and headers
-origins = [
-    "http://localhost",
-    "http://localhost:80",
-    "http://localhost:8080",
-    "http://localhost:4200",
-]
+if MODE == 'dev':
+    origins = [
+        "http://localhost",
+        "http://localhost:80",
+        "http://localhost:8080",
+        "http://localhost:4200",
+        "http://localhost:5500",
+        "http://192.168.0.92:5500",
+    ]
+elif MODE == 'prod':
+    origins = [
+        "https://www.thomasranque.com",
+        "https://thomasranque.com",
+    ]
 
 ### Main Router #
-app.include_router(demo_router)
+# app.include_router(demo_router)
 app.include_router(router)
 
 """
