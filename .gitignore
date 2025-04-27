@@ -1,4 +1,6 @@
 *.env
 *.env_prod
+./.env
+./.env_prod
 __pycache__
 .idea/
