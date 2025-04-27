@@ -1,3 +1,4 @@
-.env
+*.env
+*.env_prod
 __pycache__
 .idea/
