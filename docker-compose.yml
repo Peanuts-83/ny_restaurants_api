@@ -1,6 +1,5 @@
-version: '3'
+version: '3.8'
 services:
-
   fastapi:
     build:
       context: .
@@ -15,6 +14,6 @@ services:
       context: .
       dockerfile: nginx_dockerfile
     ports:
-      - "8080:80" # host_port:container_port
+      - "8081:80" # host_port:container_port
     depends_on:
       - fastapi # ref to fastapi service above

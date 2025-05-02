@@ -1,18 +1,45 @@
-# Newyork restaurants API
-
 [![Python](https://img.shields.io/badge/Language-Python-info?logo=python&logoColor=white&color=3776AB)](https://www.python.org/)
 [![Fastapi](https://img.shields.io/badge/Code-Fastapi-info?logo=fastapi&logoColor=white&color=009688)](https://fastapi.tiangolo.com/)
 [![MongoDB](https://img.shields.io/badge/Database-MongoDB-info?logo=mongodb&logoColor=white&color=47A248)](https://www.mongodb.com/)
 [![Docker](https://img.shields.io/badge/Deploy-Docker-info?logo=docker&logoColor=white&color=2496ED)](https://www.docker.com/)
 [![OpenApi](https://img.shields.io/badge/Doc-OpenApi-info?logo=openapiinitiative&logoColor=white&color=6BA539)](https://www.openapis.org/)
 
-[Fastapi](https://fastapi.tiangolo.com/) (python) app linked to [Atlas-Mongodb database](https://www.mongodb.com/).
+# Newyork restaurants API
 
+[Fastapi](https://fastapi.tiangolo.com/) (python) API linked to [Atlas-Mongodb database](https://www.mongodb.com/).
 The purpose of this app is to provide quick and simple api to support any front-end project related to.
 
 You can query to collections: restaurants and neighborhoods. Routes have been defined to query for one item, a list of items, distinct values on a field, create, update and delete items or fields.
 
-*A little demo api is also defined, not linked to any database, but connected to local variable for quick testing purpose.*
+> *A little demo api is also defined, not linked to any database, but connected to local variable for quick testing purpose.*
+
+
+## Quick launch
+
+### Dev mode
+
+To make some changes and watch effects on the API
+
+```bash
+# build
+docker-compose build
+# run
+docker-compose up -d
+# stop
+docker-compose down
+```
+
+**-d**: detached mode. If you need to see logs, you can dismiss this parameter
+
+### Prod mode
+
+To make it run on server for production use, refer to [my self-hosted server repository](https://github.com/Peanuts-83/home_server). Adjust path in prepublis.sh script to your use case.
+
+```bash
+# prepublish on server
+./prepublish.sh
+```
+
 
 ## Fastapi
 
@@ -300,9 +327,9 @@ Once containers run, you can test in your browser at uris shown in [run project 
 
 ### Production deployement
 
-#### Port HTTPS (:446)
+#### Port HTTPS (:443)
 
-HTTP (:80) is not secure, so HTTPS (:446) must be used for giving access to api from internet. HTTPS allows traffic encryption between client and server, protecting against eavesdropping and interception.
+HTTP (:80) is not secure, so HTTPS (:443) must be used for giving access to api from internet. HTTPS allows traffic encryption between client and server, protecting against eavesdropping and interception.
 
 Indeed the following points should also be taken in consideration:
 
